@@ -21,7 +21,16 @@ func (h Handler) Handle(ctx context.Context, tenant, key string, c Command) (por
 	if err != nil {
 		return ports.Outcome{}, false, err
 	}
-	return h.Store.Execute(ctx, r, func(ctx context.Context, tx ports.Transaction) (ports.Outcome, error) { return Apply(ctx, tx, c) })
+	return h.Store.Execute(ctx, r, func(ctx context.Context, tx ports.Transaction) (ports.Outcome, error) {
+		managed, err := tx.ManagedReservation(ctx, c.ID)
+		if err != nil {
+			return ports.Outcome{}, err
+		}
+		if managed {
+			return ports.Outcome{}, domain.ErrInvalidTransition
+		}
+		return Apply(ctx, tx, c)
+	})
 }
 
 // Apply is also used by the durable expiry worker within its claimed-row transaction.

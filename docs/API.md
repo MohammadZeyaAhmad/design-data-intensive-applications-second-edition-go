@@ -56,3 +56,5 @@ Successful retries return the original saved snapshot: retrying a reservation af
 `ETag` on stock reads and command outcomes reports the stock version. Conditional requests using `If-Match` are explicitly rejected until an application-level version precondition is implemented; they are never silently ignored. Projection reads are asynchronous and return `X-Consistency: eventual`; they must not authorize another reservation.
 
 Errors use `{"error":{"code":"..."}}`: 400 invalid input/JSON, 401 unauthorized, 404 not found, 409 insufficient stock/idempotency conflict/invalid transition, 415 unsupported media type, 504 deadline, and 500 internal error. Internal database details are logged server-side rather than returned to clients.
+
+Workflow-owned reservations are managed through the published checkout contract. Ordinary commitment/release/reversal endpoints reject those IDs; cancel the checkout to request compensation. Permanent step-close markers prevent a delayed workflow reserve from recreating an already compensated hold.

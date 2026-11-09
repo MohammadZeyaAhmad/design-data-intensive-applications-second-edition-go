@@ -33,7 +33,7 @@ func main() {
 }
 func run() error {
 	if len(os.Args) != 2 {
-		return errors.New("usage: guide configure|doctor|wait|demo|demo-orders|verify-live|verify-lifecycle|verify-orders|verify-recovery|coverage")
+		return errors.New("usage: guide configure|doctor|wait|demo|demo-orders|demo-checkout|verify-checkout|verify-checkout-recovery|verify-live|verify-lifecycle|verify-orders|verify-recovery|coverage")
 	}
 	command := os.Args[1]
 	if command == "configure" {
@@ -67,6 +67,12 @@ func run() error {
 		return nil
 	case "demo":
 		return demo(c)
+	case "demo-checkout":
+		return demoCheckout(c)
+	case "verify-checkout-recovery":
+		return verifyCheckoutRecovery(c)
+	case "verify-checkout":
+		return verifyCheckout(c)
 	case "demo-orders":
 		return demoOrders(c)
 	case "verify-lifecycle":
@@ -92,8 +98,8 @@ func secret() (string, error) {
 func configure() error {
 	f, err := os.OpenFile(".env", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if errors.Is(err, os.ErrExist) {
-		fmt.Println("Existing .env preserved.")
-		return nil
+		fmt.Println("Existing credentials preserved; new local settings added when needed.")
+		return providerConfig()
 	}
 	if err != nil {
 		return err
@@ -126,7 +132,7 @@ func configure() error {
 	}
 	ok = true
 	fmt.Println("Created .env with random local database and tenant credentials (mode 0600). Values were not printed.")
-	return nil
+	return providerConfig()
 }
 
 type client struct {

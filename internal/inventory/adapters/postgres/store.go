@@ -122,6 +122,12 @@ func (t *transaction) Now(ctx context.Context) (time.Time, error) {
 	return now.UTC(), err
 }
 
+func (t *transaction) ManagedReservation(ctx context.Context, id string) (bool, error) {
+	var managed bool
+	err := t.tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM inventory.workflow_steps WHERE tenant_id=$1 AND id=$2::uuid)`, t.tenant, id).Scan(&managed)
+	return managed, err
+}
+
 func (t *transaction) EnsureStock(ctx context.Context, sku string) error {
 	_, err := t.tx.Exec(ctx, `INSERT INTO inventory.stock (tenant_id,sku) VALUES ($1,$2) ON CONFLICT DO NOTHING`, t.tenant, sku)
 	return err

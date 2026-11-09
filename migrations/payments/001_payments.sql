@@ -1,0 +1,8 @@
+CREATE SCHEMA payments;
+CREATE TABLE payments.intents(tenant_id text NOT NULL,id uuid NOT NULL,amount_minor bigint NOT NULL CHECK(amount_minor>0 AND amount_minor<=9000000000000000),currency text NOT NULL,method text NOT NULL,status text NOT NULL DEFAULT 'pending' CHECK(status IN('pending','captured','declined','voided','refunded')),PRIMARY KEY(tenant_id,id));
+-- One row is a balanced two-leg transfer, never an editable running balance.
+CREATE TABLE payments.journal(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id text NOT NULL,payment_id uuid NOT NULL,kind text NOT NULL CHECK(kind IN('capture','refund')),currency text NOT NULL,amount_minor bigint NOT NULL CHECK(amount_minor>0),debit_account text NOT NULL,credit_account text NOT NULL,recorded_at timestamptz NOT NULL DEFAULT clock_timestamp(),UNIQUE(tenant_id,payment_id,kind),FOREIGN KEY(tenant_id,payment_id) REFERENCES payments.intents,CHECK((kind='capture' AND debit_account='provider_clearing' AND credit_account='customer_liability') OR (kind='refund' AND debit_account='customer_liability' AND credit_account='provider_clearing')));
+CREATE FUNCTION payments.immutable() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'journal corrections require compensating postings' USING ERRCODE='55000'; END; $$;
+CREATE TRIGGER immutable_journal BEFORE UPDATE OR DELETE ON payments.journal FOR EACH ROW EXECUTE FUNCTION payments.immutable();
+CREATE SCHEMA provider;
+CREATE TABLE provider.operations(tenant_id text NOT NULL,id uuid NOT NULL,amount_minor bigint NOT NULL,currency text NOT NULL,method text NOT NULL,status text NOT NULL DEFAULT 'pending',capture_response_lost boolean NOT NULL DEFAULT false,refund_response_lost boolean NOT NULL DEFAULT false,PRIMARY KEY(tenant_id,id));

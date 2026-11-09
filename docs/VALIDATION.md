@@ -1,5 +1,17 @@
 # Validation
 
+## Third increment: Catalog, durable checkout and simulated payments
+
+Recorded **10 November 2026** using the same Go 1.27.3/PostgreSQL 18.6 development baseline. `make verify` passed: race/unit/architecture tests, vet, all **30 real PostgreSQL integration tests**, source/progress checks, the existing labs/scenarios, and new checkout/restart scenarios. Each integration run used a fresh disposable database with event/journal immutability enabled.
+
+The new database tests verified immutable price versions/quotes, one winner among ten concurrent price updates, accepted-price preservation, cross-tenant quote isolation, one capture after a lost provider response, journal immutability and balance, pending-intent close markers, declined checkout compensation, partial allocation failure with lost refund response, stale lease rejection, closed-resource protection against delayed calls, dispatch redelivery, invalid/expired quote rejection, fixed financial identity, refund constraints, and refund reconciliation of a capture absent locally.
+
+The real HTTP scenarios completed successful, lost-response and declined checkouts. Repricing a product from 1,250 to 9,000 minor units after acceptance still captured the accepted 2,500 total for two items. Successful/lost-response paths each recorded one capture transfer; decline released inventory without a capture entry. Cross-tenant workflow reads returned not found.
+
+`make verify-checkout-recovery` stopped the separate provider, observed a durable retryable capture, stopped/restarted the worker and provider, and reached confirmation with one journal capture. Repeating accepted checkout identity returned the original attempt. Existing inventory/Ordering restart checks also passed. Reports are in ignored `artifacts/checkout.json` and `artifacts/checkout-recovery.json`.
+
+The provider is a development HTTP simulator with its own transaction namespace in the same PostgreSQL instance. These checks do not establish behavior of an actual bank, independent physical infrastructure, authorization/capture separation, partial refunds, webhooks, or Fulfillment. Financial rows implement balanced two-leg transfers; general multi-account accounting and broad operational/audit tooling remain tracked work.
+
 ## Second increment: reservation lifecycle and event-sourced Ordering
 
 Recorded **10 November 2026**, using the same pinned Go/PostgreSQL development baseline below. All 19 real PostgreSQL integration tests passed with race detection in a fresh, disposable database. Domain, HTTP and architecture race tests and `go vet` also passed. The Ordering fuzz target completed **78,627 executions** with four workers in a bounded run.

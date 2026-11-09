@@ -1,0 +1,8 @@
+{
+  "id": "checkout-payments",
+  "status": "verified",
+  "work_packages": ["APP-02", "APP-05", "APP-07", "C09-04", "C13-05"],
+  "commands": ["make verify-checkout", "make verify-checkout-recovery", "make integration"],
+  "assertions": ["accepted quote fixes amount and price versions", "lost provider responses reconcile one capture", "partial allocation failure refunds and reverses", "source failure fences stale confirmation", "closed resources reject delayed reserve/capture", "lease replacement rejects stale checkpoints", "dispatch redelivery creates one job", "journal identity and refund history are enforced"],
+  "evidence": ["tests/integration/commerce_test.go", "internal/catalog/domain/pricing_test.go", "cmd/guide/checkout.go", "cmd/guide/checkoutrecovery.go"]
+}

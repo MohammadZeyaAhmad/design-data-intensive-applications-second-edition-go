@@ -40,12 +40,16 @@ type Line struct {
 	Quantity int64  `json:"quantity"`
 }
 type State struct {
-	ID                 string `json:"id"`
-	TenantID           string `json:"tenant_id"`
-	Version            int64  `json:"version"`
-	Status             string `json:"status"`
-	Lines              []Line `json:"lines"`
-	CancellationReason string `json:"cancellation_reason,omitempty"`
+	ID                 string   `json:"id"`
+	TenantID           string   `json:"tenant_id"`
+	Version            int64    `json:"version"`
+	Status             string   `json:"status"`
+	Lines              []Line   `json:"lines"`
+	CancellationReason string   `json:"cancellation_reason,omitempty"`
+	CheckoutID         string   `json:"checkout_id,omitempty"`
+	Pricing            *Pricing `json:"pricing,omitempty"`
+	PaymentID          string   `json:"payment_id,omitempty"`
+	FailureReason      string   `json:"failure_reason,omitempty"`
 }
 type Event struct {
 	Version       int64           `json:"version"`
@@ -81,17 +85,39 @@ func Restore(s State) (*Order, error) {
 	if !ValidTenant(s.TenantID) || !ValidID(s.ID) || s.Version < 1 || !ValidLines(s.Lines) {
 		return nil, ErrInvalidEvent
 	}
-	if s.Status != Placed && s.Status != Cancelled {
+	if s.Status != Placed && s.Status != Cancelled && s.Status != CheckoutPending && s.Status != Confirmed && s.Status != CheckoutFailedState {
 		return nil, ErrInvalidEvent
+	}
+	if s.Status == CheckoutPending || s.Status == Confirmed || s.Status == CheckoutFailedState {
+		if !ValidID(s.CheckoutID) || !validPricing(s.Pricing, s.Lines) {
+			return nil, ErrInvalidEvent
+		}
+		if s.Status == Confirmed && s.PaymentID != s.CheckoutID {
+			return nil, ErrInvalidEvent
+		}
+		if s.Status == CheckoutFailedState && !validFailure(s.FailureReason) {
+			return nil, ErrInvalidEvent
+		}
 	}
 	if (s.Status == Cancelled && !validReason(s.CancellationReason)) || (s.Status == Placed && s.CancellationReason != "") {
 		return nil, ErrInvalidEvent
 	}
 	s.ID = strings.ToLower(s.ID)
 	s.Lines = append([]Line(nil), s.Lines...)
-	return &Order{state: s}, nil
+	out := &Order{state: s}
+	out.state = out.Snapshot()
+	return out, nil
 }
-func (o *Order) Snapshot() State { s := o.state; s.Lines = append([]Line(nil), s.Lines...); return s }
+func (o *Order) Snapshot() State {
+	s := o.state
+	s.Lines = append([]Line(nil), s.Lines...)
+	if s.Pricing != nil {
+		p := *s.Pricing
+		p.Lines = append([]PriceLine(nil), p.Lines...)
+		s.Pricing = &p
+	}
+	return s
+}
 
 func (o *Order) event(kind string, schema int, data any) ([]Event, error) {
 	if o.state.Version == math.MaxInt64 {
@@ -157,6 +183,12 @@ func (o *Order) Apply(e Event) error {
 	}
 	next := o.Snapshot()
 	switch e.Type {
+	case CheckoutStarted, OrderConfirmed, CheckoutFailed:
+		var err error
+		next, err = applyCheckout(next, e)
+		if err != nil {
+			return err
+		}
 	case OrderPlaced:
 		if next.Version != 0 {
 			return ErrInvalidEvent

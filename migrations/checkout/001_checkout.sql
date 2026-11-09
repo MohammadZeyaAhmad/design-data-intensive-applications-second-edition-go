@@ -1,0 +1,3 @@
+CREATE SCHEMA checkout;
+CREATE TABLE checkout.jobs(tenant_id text NOT NULL,id uuid NOT NULL,order_id uuid NOT NULL,request jsonb NOT NULL,state jsonb NOT NULL,status text NOT NULL DEFAULT 'reserving',cancel_requested boolean NOT NULL DEFAULT false,lease_token bigint NOT NULL DEFAULT 0,lease_until timestamptz NOT NULL DEFAULT '-infinity',next_attempt_at timestamptz NOT NULL DEFAULT now(),attempts bigint NOT NULL DEFAULT 0,last_error text,updated_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(tenant_id,id),UNIQUE(tenant_id,order_id));
+CREATE INDEX checkout_ready ON checkout.jobs(next_attempt_at) WHERE status NOT IN('confirmed','failed','cancelled');

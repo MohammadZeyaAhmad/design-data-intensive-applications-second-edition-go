@@ -26,6 +26,10 @@ func rollback(tx pgx.Tx) {
 }
 
 func (s *Store) Execute(ctx context.Context, r ports.Request, id string, expected int64, decide func(*domain.Order) ([]domain.Event, error)) (domain.State, bool, error) {
+	return s.ExecuteAt(ctx, r, id, expected, func(o *domain.Order, _ time.Time) ([]domain.Event, error) { return decide(o) })
+}
+
+func (s *Store) ExecuteAt(ctx context.Context, r ports.Request, id string, expected int64, decide func(*domain.Order, time.Time) ([]domain.Event, error)) (domain.State, bool, error) {
 	if !domain.ValidID(id) || expected < 0 {
 		return domain.State{}, false, domain.ErrInvalidInput
 	}
@@ -76,7 +80,11 @@ func (s *Store) Execute(ctx context.Context, r ports.Request, id string, expecte
 	if err != nil {
 		return domain.State{}, false, err
 	}
-	events, err := decide(order)
+	var now time.Time
+	if err = tx.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&now); err != nil {
+		return domain.State{}, false, err
+	}
+	events, err := decide(order, now.UTC())
 	if err != nil {
 		return domain.State{}, false, err
 	}
@@ -97,6 +105,11 @@ func (s *Store) Execute(ctx context.Context, r ports.Request, id string, expecte
 		}
 	}
 	state := order.Snapshot()
+	if state.Status == domain.CheckoutPending && expected+1 == state.Version && len(events) == 1 && events[0].Type == domain.CheckoutStarted {
+		if err = enqueueCheckout(ctx, tx, r.Tenant, r.CheckoutMethod, state); err != nil {
+			return domain.State{}, false, err
+		}
+	}
 	tag, err := tx.Exec(ctx, `UPDATE ordering.streams SET version=$3 WHERE tenant_id=$1 AND id=$2::uuid AND version=$4`, r.Tenant, id, state.Version, expected)
 	if err != nil {
 		return domain.State{}, false, err

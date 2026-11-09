@@ -12,6 +12,7 @@ import (
 type Request struct {
 	Tenant, Operation, Key string
 	Hash                   [32]byte
+	CheckoutMethod         string
 }
 
 func NewRequest(tenant, operation, key string, payload any) (Request, error) {

@@ -1,0 +1,1 @@
+CREATE TABLE ordering.checkout_outbox(tenant_id text NOT NULL,id uuid NOT NULL,order_id uuid NOT NULL,body jsonb NOT NULL,dispatched_at timestamptz,PRIMARY KEY(tenant_id,id),FOREIGN KEY(tenant_id,order_id) REFERENCES ordering.streams(tenant_id,id));

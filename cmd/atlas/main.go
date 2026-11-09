@@ -10,10 +10,20 @@ import (
 	"syscall"
 	"time"
 
+	cathttp "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/catalog/adapters/httpapi"
+	catdb "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/catalog/adapters/postgres"
+	checkhttp "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/checkout/adapters/httpapi"
+	checkdb "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/checkout/adapters/postgres"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/checkout/features/advance"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/checkout/features/start"
+	checkrun "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/checkout/runtime"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/adapters/httpapi"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/adapters/postgres"
 	ordershttp "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/ordering/adapters/httpapi"
 	orderspostgres "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/ordering/adapters/postgres"
+	payhttp "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/payments/adapters/httpapi"
+	paydb "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/payments/adapters/postgres"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/payments/adapters/provider"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/config"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/migrations"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -32,10 +42,10 @@ func main() {
 
 func run(ctx context.Context, logger *slog.Logger) error {
 	if len(os.Args) != 2 {
-		return errors.New("usage: atlas serve|worker|migrate|check")
+		return errors.New("usage: atlas serve|worker|provider|migrate|check")
 	}
 	command := os.Args[1]
-	if command != "serve" && command != "worker" && command != "migrate" && command != "check" {
+	if command != "serve" && command != "worker" && command != "migrate" && command != "check" && command != "provider" {
 		return errors.New("unknown atlas command")
 	}
 	if err := config.LoadLocalEnv(".env"); err != nil {
@@ -76,8 +86,33 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		logger.Info("database and schema ready")
 		return nil
 	}
+
+	if command == "provider" {
+		token := os.Getenv("ATLAS_PROVIDER_TOKEN")
+		if len(token) < 32 {
+			return errors.New("ATLAS_PROVIDER_TOKEN is required")
+		}
+		address := os.Getenv("ATLAS_HTTP_ADDR")
+		if address == "" {
+			address = "127.0.0.1:18082"
+		}
+		return serveHTTP(ctx, logger, address, provider.Server{Pool: pool, Token: token}.Handler())
+	}
+	providerURL := os.Getenv("ATLAS_PROVIDER_URL")
+	if providerURL == "" {
+		providerURL = "http://127.0.0.1:18082"
+	}
+	providerClient, err := provider.NewClient(providerURL, os.Getenv("ATLAS_PROVIDER_TOKEN"))
+	if err != nil {
+		return err
+	}
+	catalogStore := &catdb.Store{Pool: pool}
+	paymentStore := &paydb.Service{Pool: pool, Provider: providerClient}
+	checkoutStore := &checkdb.Store{Pool: pool}
 	store := &postgres.Store{Pool: pool}
 	orderStore := &orderspostgres.Store{Pool: pool}
+	orderCheckout := orderspostgres.Checkout{Store: orderStore}
+	checkoutWorker := checkrun.Worker{Store: checkoutStore, Orders: orderStore, Handler: advance.Handler{Inventory: postgres.Workflow{Store: store}, Payments: paymentStore, Orders: orderCheckout}}
 	if command == "worker" {
 		logger.Info("Atlas inventory and ordering workers started")
 		group, workerContext := errgroup.WithContext(ctx)
@@ -86,6 +121,9 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		})
 		group.Go(func() error {
 			return orderStore.Run(workerContext, func(err error) { logger.Error("ordering projection attempt failed", "error", err) })
+		})
+		group.Go(func() error {
+			return checkoutWorker.Run(workerContext, func(err error) { logger.Error("checkout step retry", "error", err) })
 		})
 		return group.Wait()
 	}
@@ -102,12 +140,21 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	mux.Handle("/v1/orders", orderHTTP)
 	mux.Handle("/v1/orders/", orderHTTP)
 	mux.Handle("/", httpapi.New(httpapi.Options{Store: store, TenantKeys: keys, Ready: func(ctx context.Context) error { return migrations.Check(ctx, pool) }, Logger: logger}))
-	server := &http.Server{Addr: address, Handler: mux, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
+
+	checkoutHTTP := checkhttp.New(start.Handler{Catalog: catalogStore, Orders: orderCheckout}, checkoutStore, keys)
+	mux.Handle("POST /v1/orders/{id}/checkout", checkoutHTTP)
+	mux.Handle("/v1/checkouts/", checkoutHTTP)
+	mux.Handle("/v1/catalog/", cathttp.New(catalogStore, keys))
+	mux.Handle("/v1/payments/", payhttp.New(paymentStore, pool, keys))
+	return serveHTTP(ctx, logger, address, mux)
+}
+func serveHTTP(ctx context.Context, logger *slog.Logger, address string, handler http.Handler) error {
+	server := &http.Server{Addr: address, Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
 	done := make(chan error, 1)
 	go func() { done <- server.ListenAndServe() }()
 	logger.Info("Atlas API started", "address", address, "authentication", "development tenant keys")
 	select {
-	case err = <-done:
+	case err := <-done:
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
@@ -115,7 +162,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	case <-ctx.Done():
 		shutdown, stop := context.WithTimeout(context.Background(), 10*time.Second)
 		defer stop()
-		if err = server.Shutdown(shutdown); err != nil {
+		if err := server.Shutdown(shutdown); err != nil {
 			_ = server.Close()
 			return err
 		}

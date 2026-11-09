@@ -1,8 +1,8 @@
 # Event-sourced Ordering API
 
-Ordering records order intent. A `placed` order is not a promise of stock, a price quote, captured payment, or dispatch. Those contracts belong to the next Catalog/checkout milestones. Lines currently contain only SKU and quantity.
+Ordering begins with SKU/quantity intent. Checkout now accepts a server-owned Catalog quote, freezes it in an event, and confirms only after the workflow verifies captured payment and committed allocations. See [commerce contracts](COMMERCE_API.md). Shipping/Fulfillment remains subsequent work.
 
-Use the same tenant-bound development bearer keys as the inventory API. Every command requires `Idempotency-Key`, JSON content type, and a body of at most 64 KiB. Caller-provided tenant/ID fields are not accepted in command bodies. Current order UUIDs are returned by the placement response.
+Use the same tenant-bound development bearer keys as the inventory API. Every command requires `Idempotency-Key`, JSON content type, and a body of at most 64 KiB. Caller-provided tenant/ID fields are not accepted in command bodies. Current order UUIDs are returned by the placement response. Checkout adds `checkout_pending`, `confirmed`, and `checkout_failed` outcomes, plus accepted `pricing`, `checkout_id`, `payment_id` and failure-reason fields when applicable. Payment references stay in operational records, not event payloads.
 
 | Method and path | Body or parameters | Result |
 |---|---|---|
@@ -15,7 +15,7 @@ Use the same tenant-bound development bearer keys as the inventory API. Every co
 
 Line count is 1–100. SKUs cannot repeat within an order; quantities are integers from 1 to 1,000,000,000. Cancellation reasons are controlled codes: `customer_requested`, `inventory_unavailable`, or `payment_failed`. Free-form personal text is not accepted in the immutable history.
 
-A state response contains `id`, `tenant_id`, `version`, `status`, `lines`, and an optional `cancellation_reason`. A cancelled order cannot be amended or cancelled by another logical command. Retrying its original cancellation key returns the saved successful response. Version checks precede a new command's decision, so two distinct commands both expecting version 1 cannot both append version 2.
+A state response contains `id`, `tenant_id`, `version`, `status`, `lines`, and an optional `cancellation_reason`. A cancelled or checkout-pending order cannot be amended or cancelled through ordinary order commands. Checkout cancellation uses its own workflow endpoint. A cancelled order cannot be cancelled by another logical command. Retrying its original cancellation key returns the saved successful response. Version checks precede a new command's decision, so two distinct commands both expecting version 1 cannot both append version 2.
 
 Request identity is scoped by tenant and operation. The hash includes typed command fields, resource identity and expected version. Reusing a key with a changed payload returns 409 `idempotency_conflict`. Repeating placement returns the original order UUID, even after later changes; retries return the original saved state, not an implicit fresh query. Rejected commands leave no request, stream, event or outbox record.
 

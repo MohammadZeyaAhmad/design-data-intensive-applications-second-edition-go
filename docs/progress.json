@@ -20,7 +20,7 @@
     },
     {
       "id": "APP-05",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "id": "APP-06",
@@ -28,7 +28,7 @@
     },
     {
       "id": "APP-07",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "id": "APP-08",
@@ -236,7 +236,7 @@
     },
     {
       "id": "C09-04",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "id": "C09-05",
@@ -336,7 +336,7 @@
     },
     {
       "id": "C13-05",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "id": "C13-06",
@@ -356,6 +356,7 @@
     }
   ],
   "scenarios": [
+    "scenarios/checkout-payments.json",
     "scenarios/inventory-lifecycle.json",
     "scenarios/ordering-events.json"
   ]

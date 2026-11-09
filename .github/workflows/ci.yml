@@ -1,0 +1,48 @@
+name: Go inventory reference
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4
+        env:
+          POSTGRES_USER: atlas
+          POSTGRES_PASSWORD: atlas-ci-disposable-only
+          POSTGRES_DB: atlas_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U atlas -d atlas_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      ATLAS_TEST_DATABASE_URL: postgresql://atlas:atlas-ci-disposable-only@127.0.0.1:5432/atlas_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+          cache: true
+      - name: Formatting
+        run: test -z "$(gofmt -l cmd internal migrations tests labs)"
+      - name: Application and lab tests, including race detection
+        run: make test
+      - name: Real PostgreSQL concurrency and failure tests
+        run: make integration
+      - name: Source inventory and first executable lab
+        run: make coverage-check lab
+      - name: Verify application builds independently of the lab workspace
+        run: GOWORK=off go build ./cmd/atlas ./cmd/guide
+      - name: Start disposable API and worker stack
+        run: make up
+      - name: Live HTTP contention and restart recovery
+        run: make verify-live verify-recovery
+      - name: Stop disposable stack
+        if: always()
+        run: |
+          if test -f .env; then make down; fi

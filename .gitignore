@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+bin/
+artifacts/
+.kube/
+*.test
+coverage.out
+*.epub
+*.pdf
+.DS_Store

@@ -1,0 +1,49 @@
+pattern_id,pattern,work_packages,implementation_contract,status
+P01,"DDD: ubiquitous language, bounded contexts, context map",APP-02,Owned schemas and vocabulary; integrate through contracts.,planned
+P02,"DDD: entities, value objects, aggregates, invariant enforcement",APP-02 APP-03 APP-04 APP-05,"Money/Quantity/IDs; aggregate methods, factories, and explicit transitions.",planned
+P03,"DDD: domain services, policies/specifications, domain events",APP-02 APP-04 APP-07,Pure eligibility/pricing policies and past-tense events; decisions stay out of transport.,planned
+P04,Anti-corruption layer and published language,APP-02 APP-05 C13-03,Translate provider and extracted-service types; no shared private domain objects.,planned
+P05,Vertical slices and use-case handlers,APP-02 APP-08,"Command/query DTO, handler, validation, ports, and tests grouped by feature.",planned
+P06,Ports/adapters and explicit composition roots,APP-02 C05-04,"Use small interfaces at actual I/O seams, not an interface for every struct.",planned
+P07,Modular monolith and deliberate service extraction,APP-02 C13-03,Contract-compatible process modes with one writer owner during extraction.,planned
+P08,Repository/data mapper and unit of work,APP-03 APP-04 C08-01,Aggregate-focused persistence plus scoped transaction runner; no generic CRUD framework.,planned
+P09,CQRS and materialized projections,C03-06 C13-02,Separate write models and rebuildable query schemas with freshness contracts.,planned
+P10,"Event sourcing, snapshots, and event upcasting",APP-04 C12-04,"Authoritative validated events, expected version, deterministic replay, versioned snapshots.",planned
+P11,Transactional outbox and reliable publisher,APP-06,Business change and event intent in one transaction; at-least-once publication.,planned
+P12,Transactional inbox and idempotent consumer,APP-06 C08-08,Inbox uniqueness and effects commit together; dedup retention covers replay.,planned
+P13,"Sagas, process managers, and compensating actions",APP-07 C12-05,Orchestrated checkout and limited choreography example with explicit recovery.,planned
+P14,"Durable execution, activity retries, workflow versioning",C05-05,Temporal and explicit persisted process-manager alternatives share outcome tests.,planned
+P15,Request idempotency and end-to-end duplicate suppression,APP-08 C13-05,"Scoped key, request hash, stable response, provider key, and reconciliation.",planned
+P16,"Publish/subscribe, competing consumers, routing, request/reply",C12-01 C12-02,Executable broker patterns with delivery/ordering contracts.,planned
+P17,"Message filter, enrichment, splitter/aggregator, scatter/gather",C12-05 C12-07 C07-04,"Bounded state and explicit correlation, ordering, and partial-result behavior.",planned
+P18,Dead-letter/quarantine and controlled replay,APP-06 C12-01,Preserve original identity; poison ordering-sensitive events pause their stream.,planned
+P19,Optimistic concurrency and compare-and-set,APP-03 APP-04 C08-03,Versioned writes and full-operation retry on conflict.,planned
+P20,Pessimistic locking and serializable transactions,C08-03 C08-06,Use real database guarantees and test the actual invariant.,planned
+P21,Distributed atomic commit and in-doubt recovery,C08-07,"2PC/XA exercise, bounded 3PC alternative, blocking behavior made observable.",planned
+P22,"CDC, ETL, and incremental view maintenance",C12-03 C11-05 C12-05,"Snapshot/WAL handoff, lineage, versioned transforms, rebuildability.",planned
+P23,"Cache-aside, read-through, refresh-ahead, negative caching",APP-09 C13-04,Add read-through/refresh-ahead wrappers as comparison adapters; define staleness bounds.,planned
+P24,Write-through/write-behind and cache invalidation,APP-09 C13-04,Comparison labs demonstrate write-behind loss and ordering risks; authoritative path remains explicit.,planned
+P25,"Singleflight, TTL jitter, and hot-key protection",APP-09 C07-03,Bound regeneration work and isolate noisy tenants.,planned
+P26,"Deadlines, cancellation, bounded retries, exponential backoff/jitter",APP-09 C09-01,Propagate one end-to-end budget; only retry operations with safe identity semantics.,planned
+P27,"Circuit breaker, bulkhead, rate limit, admission control",APP-09 C02-02,Protect finite resources and test recovery after dependency failure.,planned
+P28,"Backpressure, bounded queues, worker pools, graceful drain",APP-09 C12-01,Own goroutine lifetimes and shutdown order; no unbounded buffers.,planned
+P29,"Leader election, leases, fencing, and work allocation",C09-04 C10-05,Linearizable allocator plus resource-enforced token check.,planned
+P30,"Replication, session consistency, and read routing",C06-01 C06-04,Explicit primary/replica read contracts and stale-read remedies.,planned
+P31,"Sharding, consistent hashing, and safe resharding",C07-01 C07-02,"Epoch-based ownership, snapshot/catch-up/cutover, resumable migration.",planned
+P32,"CRDTs, conflict resolution, and offline synchronization",C06-05 C06-06,Convergence under declared semantics; never substitute for scarce-resource coordination.,planned
+P33,"Append-only journal, reconciliation, and auditable correction",APP-05 C13-07,Balanced immutable postings and independent integrity checks.,planned
+P34,"Expand/contract migration, backfill, and versioned schemas",C05-01 C05-03,"Mixed-version compatibility, resumable backfill, explicit rollback window.",planned
+P35,"Shadow projection, blue/green data generation, atomic cutover",C13-02,Consistency barrier and checksums before changing reader generation.,planned
+P36,"Branch by abstraction, strangler migration, feature flags",C13-03 OPS-01,"Controlled routing, one owner, compatible rollback and flag retirement.",planned
+P37,"REST/OpenAPI, gRPC, GraphQL, gateway composition",APP-08 C05-04 C03-05,"Versioned contracts, bounded requests, conditional writes/ETags, keyset pagination.",planned
+P38,"OIDC, RBAC, tenant isolation, least-privilege adapters",APP-08 OPS-03,Authentication and per-resource authorization on every transport and data export.,planned
+P39,"Telemetry, SLOs, health checks, and error budgets",OPS-01 C02-02,Integrity and freshness measured separately; readiness is not liveness.,planned
+P40,"Rolling/canary deployment, rollback, and infrastructure as code",OPS-01 OPS-03,"Migrate compatibly, promote tested images, and verify database-aware rollback.",planned
+P41,"Backup/PITR, disaster recovery, and game days",C06-01 OPS-03,Restore evidence and RPO/RTO measurement; replicas do not replace backups.,planned
+P42,"Contract tests, property tests, fuzzing, and deterministic simulation",C09-06 OPS-02,Model and real-system evidence plus repeatable seeds and minimized failures.,planned
+P43,"Batch DAGs, shuffle, checkpointing, and atomic output publication",C11-02 C11-03 C12-08,Retryable tasks with immutable outputs and versioned manifests.,planned
+P44,"Temporal joins, watermarks, and late-data correction",C12-06 C12-07,Explicit event-time contracts and bounded state.,planned
+P45,"Consent, erasure, retention, data minimization",C14-02 C01-03,Purpose-specific processing and replay/backup deletion controls.,planned
+P46,"Strategy, adapter, decorator, factory, and functional options in Go",APP-02 APP-09 C05-04,"Concrete uses for routing/merge policies, providers, telemetry/retry, aggregate construction, and validated configuration.",planned
+P47,State machine and durable process orchestration,APP-04 APP-07 C05-05,"Explicit legal transitions, persisted progress, compensations, and recovery states.",planned
+P48,Producer/consumer pipelines and structured Go concurrency,APP-09 C11-01 C12-05,"context cancellation, errgroup-style lifetimes, semaphores, ownership, bounded channels, race/leak checks.",planned

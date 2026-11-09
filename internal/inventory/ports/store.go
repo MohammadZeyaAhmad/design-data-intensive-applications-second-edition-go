@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"strings"
+	"time"
 
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/domain"
 )
@@ -40,6 +41,7 @@ func NewRequest(tenant, operation, key string, command any) (Request, error) {
 // The transaction is scoped to one tenant and bounded context. Business rules
 // execute in feature handlers against locked domain aggregates.
 type Transaction interface {
+	Now(context.Context) (time.Time, error)
 	EnsureStock(context.Context, string) error
 	LockStock(context.Context, string) (*domain.Stock, error)
 	SaveStock(context.Context, *domain.Stock) error

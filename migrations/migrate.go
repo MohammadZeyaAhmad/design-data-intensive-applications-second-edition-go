@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-//go:embed inventory/*.sql
+//go:embed inventory/*.sql ordering/*.sql
 var files embed.FS
 
 func Apply(ctx context.Context, pool *pgxpool.Pool) error {
@@ -29,7 +29,7 @@ func Apply(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, err = tx.Exec(ctx, `CREATE TABLE IF NOT EXISTS public.atlas_schema_migrations (name text PRIMARY KEY, checksum text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now())`); err != nil {
 		return err
 	}
-	names, err := fs.Glob(files, "inventory/*.sql")
+	names, err := fs.Glob(files, "*/*.sql")
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func Apply(ctx context.Context, pool *pgxpool.Pool) error {
 }
 
 func Check(ctx context.Context, pool *pgxpool.Pool) error {
-	names, err := fs.Glob(files, "inventory/*.sql")
+	names, err := fs.Glob(files, "*/*.sql")
 	if err != nil {
 		return err
 	}

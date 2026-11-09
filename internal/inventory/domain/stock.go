@@ -87,3 +87,13 @@ func (s *Stock) Commit(q int64) error {
 	s.state.Version++
 	return nil
 }
+
+// ReverseAllocation compensates an allocation that has not been shipped.
+func (s *Stock) ReverseAllocation(q int64) error {
+	if !ValidQuantity(q) || q > s.state.Allocated || s.state.Version == math.MaxInt64 {
+		return ErrCorruptState
+	}
+	s.state.Allocated -= q
+	s.state.Version++
+	return nil
+}

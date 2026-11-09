@@ -1,0 +1,8 @@
+{
+  "id": "ordering-events",
+  "status": "verified",
+  "work_packages": ["APP-04", "C03-06", "C05-03", "C12-04", "C13-02"],
+  "commands": ["make verify-orders", "make verify-recovery", "make integration"],
+  "assertions": ["one expected stream version admits one competing append", "event append and request identity are atomic", "snapshot and full replay agree", "legacy facts are upcast without mutation", "unknown schemas never advance views", "a deleted projection can be reconstructed and resume"],
+  "evidence": ["tests/integration/ordering_test.go", "internal/ordering/domain/order_test.go", "cmd/guide/orders.go"]
+}

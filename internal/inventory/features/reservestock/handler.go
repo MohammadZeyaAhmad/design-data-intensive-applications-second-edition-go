@@ -5,16 +5,18 @@ import (
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/domain"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/ports"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/identity"
+	"time"
 )
 
 type Command struct {
-	SKU      string `json:"sku"`
-	Quantity int64  `json:"quantity"`
+	SKU        string `json:"sku"`
+	Quantity   int64  `json:"quantity"`
+	TTLSeconds int64  `json:"ttl_seconds,omitempty"`
 }
 type Handler struct{ Store ports.Store }
 
 func (h Handler) Handle(ctx context.Context, tenant, key string, c Command) (ports.Outcome, bool, error) {
-	if !domain.ValidSKU(c.SKU) || !domain.ValidQuantity(c.Quantity) {
+	if !domain.ValidSKU(c.SKU) || !domain.ValidQuantity(c.Quantity) || c.TTLSeconds < 0 || c.TTLSeconds > 3600 {
 		return ports.Outcome{}, false, domain.ErrInvalidInput
 	}
 	r, err := ports.NewRequest(tenant, "reserve-stock", key, c)
@@ -33,7 +35,15 @@ func (h Handler) Handle(ctx context.Context, tenant, key string, c Command) (por
 		if err != nil {
 			return ports.Outcome{}, err
 		}
-		reservation, err := domain.NewReservation(id, tenant, c.SKU, c.Quantity)
+		now, err := tx.Now(ctx)
+		if err != nil {
+			return ports.Outcome{}, err
+		}
+		ttl := c.TTLSeconds
+		if ttl == 0 {
+			ttl = 900
+		}
+		reservation, err := domain.NewReservation(id, tenant, c.SKU, c.Quantity, now.Add(time.Duration(ttl)*time.Second))
 		if err != nil {
 			return ports.Outcome{}, err
 		}

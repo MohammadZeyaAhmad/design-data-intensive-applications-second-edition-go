@@ -1,0 +1,362 @@
+{
+  "updated": "2026-11-10",
+  "scope": "Full 88-package baseline; scenario verification does not close a whole package.",
+  "packages": [
+    {
+      "id": "APP-01",
+      "status": "in_progress"
+    },
+    {
+      "id": "APP-02",
+      "status": "in_progress"
+    },
+    {
+      "id": "APP-03",
+      "status": "in_progress"
+    },
+    {
+      "id": "APP-04",
+      "status": "in_progress"
+    },
+    {
+      "id": "APP-05",
+      "status": "planned"
+    },
+    {
+      "id": "APP-06",
+      "status": "in_progress"
+    },
+    {
+      "id": "APP-07",
+      "status": "planned"
+    },
+    {
+      "id": "APP-08",
+      "status": "in_progress"
+    },
+    {
+      "id": "APP-09",
+      "status": "planned"
+    },
+    {
+      "id": "OPS-01",
+      "status": "planned"
+    },
+    {
+      "id": "OPS-02",
+      "status": "planned"
+    },
+    {
+      "id": "OPS-03",
+      "status": "planned"
+    },
+    {
+      "id": "C01-01",
+      "status": "planned"
+    },
+    {
+      "id": "C01-02",
+      "status": "planned"
+    },
+    {
+      "id": "C01-03",
+      "status": "planned"
+    },
+    {
+      "id": "C02-01",
+      "status": "planned"
+    },
+    {
+      "id": "C02-02",
+      "status": "planned"
+    },
+    {
+      "id": "C02-03",
+      "status": "planned"
+    },
+    {
+      "id": "C03-01",
+      "status": "planned"
+    },
+    {
+      "id": "C03-02",
+      "status": "planned"
+    },
+    {
+      "id": "C03-03",
+      "status": "planned"
+    },
+    {
+      "id": "C03-04",
+      "status": "planned"
+    },
+    {
+      "id": "C03-05",
+      "status": "planned"
+    },
+    {
+      "id": "C03-06",
+      "status": "in_progress"
+    },
+    {
+      "id": "C04-01",
+      "status": "planned"
+    },
+    {
+      "id": "C04-02",
+      "status": "planned"
+    },
+    {
+      "id": "C04-03",
+      "status": "planned"
+    },
+    {
+      "id": "C04-04",
+      "status": "planned"
+    },
+    {
+      "id": "C04-05",
+      "status": "planned"
+    },
+    {
+      "id": "C05-01",
+      "status": "planned"
+    },
+    {
+      "id": "C05-02",
+      "status": "planned"
+    },
+    {
+      "id": "C05-03",
+      "status": "in_progress"
+    },
+    {
+      "id": "C05-04",
+      "status": "planned"
+    },
+    {
+      "id": "C05-05",
+      "status": "planned"
+    },
+    {
+      "id": "C05-06",
+      "status": "planned"
+    },
+    {
+      "id": "C06-01",
+      "status": "planned"
+    },
+    {
+      "id": "C06-02",
+      "status": "planned"
+    },
+    {
+      "id": "C06-03",
+      "status": "planned"
+    },
+    {
+      "id": "C06-04",
+      "status": "planned"
+    },
+    {
+      "id": "C06-05",
+      "status": "planned"
+    },
+    {
+      "id": "C06-06",
+      "status": "planned"
+    },
+    {
+      "id": "C06-07",
+      "status": "planned"
+    },
+    {
+      "id": "C06-08",
+      "status": "planned"
+    },
+    {
+      "id": "C07-01",
+      "status": "planned"
+    },
+    {
+      "id": "C07-02",
+      "status": "planned"
+    },
+    {
+      "id": "C07-03",
+      "status": "planned"
+    },
+    {
+      "id": "C07-04",
+      "status": "planned"
+    },
+    {
+      "id": "C08-01",
+      "status": "in_progress"
+    },
+    {
+      "id": "C08-02",
+      "status": "planned"
+    },
+    {
+      "id": "C08-03",
+      "status": "in_progress"
+    },
+    {
+      "id": "C08-04",
+      "status": "planned"
+    },
+    {
+      "id": "C08-05",
+      "status": "planned"
+    },
+    {
+      "id": "C08-06",
+      "status": "planned"
+    },
+    {
+      "id": "C08-07",
+      "status": "planned"
+    },
+    {
+      "id": "C08-08",
+      "status": "in_progress"
+    },
+    {
+      "id": "C09-01",
+      "status": "planned"
+    },
+    {
+      "id": "C09-02",
+      "status": "planned"
+    },
+    {
+      "id": "C09-03",
+      "status": "planned"
+    },
+    {
+      "id": "C09-04",
+      "status": "planned"
+    },
+    {
+      "id": "C09-05",
+      "status": "planned"
+    },
+    {
+      "id": "C09-06",
+      "status": "planned"
+    },
+    {
+      "id": "C10-01",
+      "status": "planned"
+    },
+    {
+      "id": "C10-02",
+      "status": "planned"
+    },
+    {
+      "id": "C10-03",
+      "status": "planned"
+    },
+    {
+      "id": "C10-04",
+      "status": "planned"
+    },
+    {
+      "id": "C10-05",
+      "status": "planned"
+    },
+    {
+      "id": "C11-01",
+      "status": "planned"
+    },
+    {
+      "id": "C11-02",
+      "status": "planned"
+    },
+    {
+      "id": "C11-03",
+      "status": "planned"
+    },
+    {
+      "id": "C11-04",
+      "status": "planned"
+    },
+    {
+      "id": "C11-05",
+      "status": "planned"
+    },
+    {
+      "id": "C12-01",
+      "status": "planned"
+    },
+    {
+      "id": "C12-02",
+      "status": "planned"
+    },
+    {
+      "id": "C12-03",
+      "status": "planned"
+    },
+    {
+      "id": "C12-04",
+      "status": "in_progress"
+    },
+    {
+      "id": "C12-05",
+      "status": "planned"
+    },
+    {
+      "id": "C12-06",
+      "status": "planned"
+    },
+    {
+      "id": "C12-07",
+      "status": "planned"
+    },
+    {
+      "id": "C12-08",
+      "status": "planned"
+    },
+    {
+      "id": "C13-01",
+      "status": "planned"
+    },
+    {
+      "id": "C13-02",
+      "status": "in_progress"
+    },
+    {
+      "id": "C13-03",
+      "status": "planned"
+    },
+    {
+      "id": "C13-04",
+      "status": "planned"
+    },
+    {
+      "id": "C13-05",
+      "status": "planned"
+    },
+    {
+      "id": "C13-06",
+      "status": "planned"
+    },
+    {
+      "id": "C13-07",
+      "status": "planned"
+    },
+    {
+      "id": "C14-01",
+      "status": "planned"
+    },
+    {
+      "id": "C14-02",
+      "status": "planned"
+    }
+  ],
+  "scenarios": [
+    "scenarios/inventory-lifecycle.json",
+    "scenarios/ordering-events.json"
+  ]
+}

@@ -11,10 +11,11 @@ Authenticated requests require `Authorization: Bearer <tenant-key>`. Identity co
 | `POST /v1/stock/{sku}/receipts` | JSON `{"quantity":10}` and `Idempotency-Key` | 200, stock snapshot |
 | `GET /v1/stock/{sku}` | Auth | 200, authoritative stock; 404 if absent in this tenant |
 | `GET /v1/stock/{sku}/projection` | Auth | 200, eventual stock view; 404 until first projected event |
-| `POST /v1/reservations` | JSON `{"sku":"BOOK","quantity":2}` and `Idempotency-Key` | 201, stock and reservation snapshots |
+| `POST /v1/reservations` | JSON `{"sku":"BOOK","quantity":2,"ttl_seconds":900}` and `Idempotency-Key` | 201, stock and reservation snapshots with `expires_at` |
 | `GET /v1/reservations/{id}` | Auth | 200, reservation; 404 if absent in this tenant |
 | `POST /v1/reservations/{id}/commit` | No body; `Idempotency-Key` | 200, reservation becomes committed and stock reserved → allocated |
 | `POST /v1/reservations/{id}/release` | No body; `Idempotency-Key` | 200, active reservation releases stock |
+| `POST /v1/reservations/{id}/reverse` | No body; `Idempotency-Key` | 200, committed allocation is compensated once |
 
 Use `Content-Type: application/json` for JSON commands. The API rejects unknown fields, trailing JSON documents, overflowing numbers, bodies over 64 KiB, invalid SKUs, and nonpositive/oversized quantities. An individual command quantity is at most 1,000,000,000. Reservation IDs are UUIDs. SKUs are 1–64 ASCII letters/digits/dot/underscore/hyphen and start with a letter or digit.
 
@@ -36,7 +37,8 @@ Command responses have this shape:
     "sku": "BOOK",
     "quantity": 2,
     "status": "active",
-    "version": 1
+    "version": 1,
+    "expires_at": "2030-01-01T00:15:00Z"
   }
 }
 ```
@@ -45,7 +47,11 @@ The `reservation` field is absent for a receipt. Available stock is `on_hand - r
 
 Idempotency keys contain 1–128 printable non-space ASCII characters. Scope is `(tenant, operation, key)`, and the request hash includes the typed payload and resource/action identifiers. The two reservation transitions share an operation scope, so use a different key for a different action. The same successful command returns its saved snapshots even if stock changed later. A changed payload returns 409 `idempotency_conflict`. Rejected/rolled-back commands do not reserve the key; they may succeed later if business state changes. Records currently have no expiration and are not automatically deleted.
 
-Repeating the same terminal transition with another key succeeds without another stock mutation or event. Committing a released reservation, or releasing a committed reservation, returns 409. Compensating allocated stock and expiring active reservations are not implemented yet.
+Repeating the same terminal transition with another key succeeds without another stock mutation or event. Committing a released/expired reservation, or releasing a committed reservation, returns 409. Reversal is a separate action from release and applies only to committed, unshipped allocation in the current inventory model; once reversed it cannot be committed again.
+
+`ttl_seconds` is optional: omitted or zero means 900 seconds, and explicit values must be between 1 and 3600 seconds. The requested TTL participates in request identity; keep the original request representation when retrying. New holds use database time after acquiring stock locks. Commitment checks `clock_timestamp()` after acquiring both reservation and stock locks, so waiting for a lock cannot extend the deadline. A due active hold is unavailable for commitment even if the expiry worker has not yet run. The worker releases it and emits `inventory.reservation-expired.v1` in one transaction. Committed reservations do not auto-expire. These are deadlines relative to the single database clock, not guarantees of globally synchronized physical time.
+
+Successful retries return the original saved snapshot: retrying a reservation after its expiry may still return its original `active` response. Read the reservation endpoint for current state. Idempotency responses written by the first increment remain readable; their absent deadline is omitted on replay rather than invented.
 
 `ETag` on stock reads and command outcomes reports the stock version. Conditional requests using `If-Match` are explicitly rejected until an application-level version precondition is implemented; they are never silently ignored. Projection reads are asynchronous and return `X-Consistency: eventual`; they must not authorize another reservation.
 

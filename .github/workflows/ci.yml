@@ -1,4 +1,4 @@
-name: Go inventory reference
+name: Go Atlas reference
 on:
   push:
   pull_request:
@@ -37,11 +37,11 @@ jobs:
       - name: Source inventory and first executable lab
         run: make coverage-check lab
       - name: Verify application builds independently of the lab workspace
-        run: GOWORK=off go build ./cmd/atlas ./cmd/guide
+        run: GOWORK=off go build ./cmd/atlas ./cmd/guide ./cmd/admin
       - name: Start disposable API and worker stack
         run: make up
       - name: Live HTTP contention and restart recovery
-        run: make verify-live verify-recovery
+        run: make verify-live verify-lifecycle verify-orders verify-recovery
       - name: Stop disposable stack
         if: always()
         run: |

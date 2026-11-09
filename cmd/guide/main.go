@@ -33,7 +33,7 @@ func main() {
 }
 func run() error {
 	if len(os.Args) != 2 {
-		return errors.New("usage: guide configure|doctor|wait|demo|verify-live|verify-recovery|coverage")
+		return errors.New("usage: guide configure|doctor|wait|demo|demo-orders|verify-live|verify-lifecycle|verify-orders|verify-recovery|coverage")
 	}
 	command := os.Args[1]
 	if command == "configure" {
@@ -67,6 +67,12 @@ func run() error {
 		return nil
 	case "demo":
 		return demo(c)
+	case "demo-orders":
+		return demoOrders(c)
+	case "verify-lifecycle":
+		return verifyLifecycle(c)
+	case "verify-orders":
+		return verifyOrders(c)
 	case "verify-live":
 		return verify(c)
 	case "verify-recovery":
@@ -355,11 +361,29 @@ func recovery(c *client) (result error) {
 	if _, err = c.expect("GET", "/v1/stock/"+sku+"/projection", "acme", "", nil, 404); err != nil {
 		return err
 	}
+	orderKey, err := identity.NewID()
+	if err != nil {
+		return err
+	}
+	orderBody, err := c.expect("POST", "/v1/orders", "acme", orderKey, orderCommand("BOOK", 2), 201)
+	if err != nil {
+		return err
+	}
+	orderState, err := decodeOrder(orderBody)
+	if err != nil {
+		return err
+	}
+	if _, err = c.expect("GET", "/v1/orders/"+orderState.ID+"/projection", "acme", "", nil, 404); err != nil {
+		return err
+	}
 	if err = compose("start", "worker"); err != nil {
 		return err
 	}
 	restarted = true
 	if err = waitProjection(c, sku, out.Stock); err != nil {
+		return err
+	}
+	if err = waitOrder(c, orderState); err != nil {
 		return err
 	}
 	if err = compose("restart", "api"); err != nil {
@@ -385,7 +409,14 @@ func recovery(c *client) (result error) {
 	if !bytes.Equal(b, replayed) {
 		return errors.New("idempotent response changed after API restart")
 	}
-	return report("recovery", map[string]any{"passed": true, "worker_outage_backlog_recovered": true, "projection_matches_authority": true, "same_response_after_api_restart": true})
+	orderReplay, err := c.expect("POST", "/v1/orders", "acme", orderKey, orderCommand("BOOK", 2), 201)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(orderBody, orderReplay) {
+		return errors.New("order response changed after API restart")
+	}
+	return report("recovery", map[string]any{"passed": true, "worker_outage_backlog_recovered": true, "projection_matches_authority": true, "order_history_and_projection_recovered": true, "same_response_after_api_restart": true})
 }
 
 func report(name string, data any) error {
@@ -420,5 +451,5 @@ func coverage() error {
 		fmt.Printf("%s: %d tracked entries\n", name, want)
 	}
 	fmt.Println("This validates source traceability, not implementation completion. See docs/STATUS.md.")
-	return nil
+	return implementationProgress()
 }

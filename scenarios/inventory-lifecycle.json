@@ -1,0 +1,8 @@
+{
+  "id": "inventory-lifecycle",
+  "status": "verified",
+  "work_packages": ["APP-03", "C08-01", "C08-03"],
+  "commands": ["make verify-lifecycle", "make integration"],
+  "assertions": ["commit checks time after locks", "expiry releases a hold once", "committed allocation cannot expire", "ordinary release cannot undo commitment", "explicit reversal has one durable effect"],
+  "evidence": ["tests/integration/lifecycle_test.go", "internal/inventory/domain/lifecycle_test.go", "cmd/guide/orders.go"]
+}

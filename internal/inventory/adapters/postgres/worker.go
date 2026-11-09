@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/domain"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/features/changereservation"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/ports"
 	"github.com/jackc/pgx/v5"
 )
@@ -69,7 +70,7 @@ func applyProjection(ctx context.Context, tx pgx.Tx, e event) error {
 		return err
 	}
 	switch e.Type {
-	case "inventory.stock-received.v1", "inventory.stock-reserved.v1", "inventory.reservation-committed.v1", "inventory.reservation-released.v1":
+	case "inventory.stock-received.v1", "inventory.stock-reserved.v1", "inventory.reservation-committed.v1", "inventory.reservation-released.v1", "inventory.reservation-expired.v1", "inventory.allocation-reversed.v1":
 	default:
 		return fmt.Errorf("unsupported inventory event type")
 	}
@@ -98,12 +99,16 @@ func (s *Store) Run(ctx context.Context, onError func(error)) error {
 			return err
 		}
 		step, cancel := context.WithTimeout(ctx, 5*time.Second)
+		expired, expiryErr := s.ExpireOne(step)
+		if expiryErr != nil && ctx.Err() == nil {
+			onError(expiryErr)
+		}
 		didWork, err := s.ProcessOne(step)
 		cancel()
 		if err != nil && ctx.Err() == nil {
 			onError(err)
 		}
-		if !didWork || err != nil {
+		if (!didWork && !expired) || err != nil || expiryErr != nil {
 			timer := time.NewTimer(100 * time.Millisecond)
 			select {
 			case <-ctx.Done():
@@ -113,4 +118,30 @@ func (s *Store) Run(ctx context.Context, onError func(error)) error {
 			}
 		}
 	}
+}
+
+// ExpireOne claims a due reservation and persists release plus event atomically.
+// A crash before commit releases its locks; after commit, the row is no longer active.
+func (s *Store) ExpireOne(ctx context.Context) (bool, error) {
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer rollback(tx)
+	var tenant, id string
+	err = tx.QueryRow(ctx, `SELECT tenant_id,id::text FROM inventory.reservations WHERE status='active' AND expires_at<=clock_timestamp() ORDER BY expires_at,tenant_id,id FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&tenant, &id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	_, err = changereservation.Apply(ctx, &transaction{tx: tx, tenant: tenant}, changereservation.Command{ID: id, Target: domain.ReservationExpired})
+	if errors.Is(err, domain.ErrReservationNotDue) {
+		return false, nil
+	}
+	if err != nil {
+		return true, err
+	}
+	return true, tx.Commit(ctx)
 }

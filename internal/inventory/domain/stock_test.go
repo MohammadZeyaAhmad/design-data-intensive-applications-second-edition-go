@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 	"testing"
+	"time"
 )
 
 func TestStockNeverOversells(t *testing.T) {
@@ -46,19 +47,19 @@ func TestOverflowAndCorruptStateAreRejected(t *testing.T) {
 }
 
 func TestReservationTerminalStates(t *testing.T) {
-	r, err := NewReservation("id", "acme", "BOOK", 3)
+	r, err := NewReservation("id", "acme", "BOOK", 3, time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatal(err)
 	}
-	changed, err := r.Transition(ReservationCommitted)
+	changed, err := r.Transition(ReservationCommitted, time.Date(2029, 1, 1, 0, 0, 0, 0, time.UTC))
 	if err != nil || !changed {
 		t.Fatal("commit failed")
 	}
-	changed, err = r.Transition(ReservationCommitted)
+	changed, err = r.Transition(ReservationCommitted, time.Date(2029, 1, 1, 0, 0, 0, 0, time.UTC))
 	if err != nil || changed {
 		t.Fatal("duplicate commit should have no new effect")
 	}
-	if _, err = r.Transition(ReservationReleased); !errors.Is(err, ErrInvalidTransition) {
+	if _, err = r.Transition(ReservationReleased, time.Date(2029, 1, 1, 0, 0, 0, 0, time.UTC)); !errors.Is(err, ErrInvalidTransition) {
 		t.Fatal("ordinary release undid committed allocation")
 	}
 }

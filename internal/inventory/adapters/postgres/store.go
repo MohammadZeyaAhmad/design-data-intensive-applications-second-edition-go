@@ -95,7 +95,7 @@ func (s *Store) Projection(ctx context.Context, tenant, sku string) (domain.Stoc
 
 func scanReservation(row pgx.Row) (domain.ReservationState, error) {
 	var r domain.ReservationState
-	err := row.Scan(&r.ID, &r.TenantID, &r.SKU, &r.Quantity, &r.Status, &r.Version)
+	err := row.Scan(&r.ID, &r.TenantID, &r.SKU, &r.Quantity, &r.Status, &r.Version, &r.ExpiresAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return r, domain.ErrNotFound
 	}
@@ -108,12 +108,18 @@ func scanReservation(row pgx.Row) (domain.ReservationState, error) {
 	return r, nil
 }
 func (s *Store) Reservation(ctx context.Context, tenant, id string) (domain.ReservationState, error) {
-	return scanReservation(s.Pool.QueryRow(ctx, `SELECT id::text,tenant_id,sku,quantity,status,version FROM inventory.reservations WHERE tenant_id=$1 AND id=$2::uuid`, tenant, id))
+	return scanReservation(s.Pool.QueryRow(ctx, `SELECT id::text,tenant_id,sku,quantity,status,version,expires_at FROM inventory.reservations WHERE tenant_id=$1 AND id=$2::uuid`, tenant, id))
 }
 
 type transaction struct {
 	tx     pgx.Tx
 	tenant string
+}
+
+func (t *transaction) Now(ctx context.Context) (time.Time, error) {
+	var now time.Time
+	err := t.tx.QueryRow(ctx, "SELECT clock_timestamp()").Scan(&now)
+	return now.UTC(), err
 }
 
 func (t *transaction) EnsureStock(ctx context.Context, sku string) error {
@@ -142,7 +148,7 @@ func (t *transaction) SaveStock(ctx context.Context, aggregate *domain.Stock) er
 	return nil
 }
 func (t *transaction) LockReservation(ctx context.Context, id string) (*domain.Reservation, error) {
-	r, err := scanReservation(t.tx.QueryRow(ctx, `SELECT id::text,tenant_id,sku,quantity,status,version FROM inventory.reservations WHERE tenant_id=$1 AND id=$2::uuid FOR UPDATE`, t.tenant, id))
+	r, err := scanReservation(t.tx.QueryRow(ctx, `SELECT id::text,tenant_id,sku,quantity,status,version,expires_at FROM inventory.reservations WHERE tenant_id=$1 AND id=$2::uuid FOR UPDATE`, t.tenant, id))
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +159,7 @@ func (t *transaction) InsertReservation(ctx context.Context, aggregate *domain.R
 	if r.TenantID != t.tenant {
 		return domain.ErrCorruptState
 	}
-	_, err := t.tx.Exec(ctx, `INSERT INTO inventory.reservations (tenant_id,id,sku,quantity,status,version) VALUES ($1,$2::uuid,$3,$4,$5,$6)`, t.tenant, r.ID, r.SKU, r.Quantity, r.Status, r.Version)
+	_, err := t.tx.Exec(ctx, `INSERT INTO inventory.reservations (tenant_id,id,sku,quantity,status,version,expires_at) VALUES ($1,$2::uuid,$3,$4,$5,$6,$7)`, t.tenant, r.ID, r.SKU, r.Quantity, r.Status, r.Version, r.ExpiresAt)
 	return err
 }
 func (t *transaction) SaveReservation(ctx context.Context, aggregate *domain.Reservation) error {

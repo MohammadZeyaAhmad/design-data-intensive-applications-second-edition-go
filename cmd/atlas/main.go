@@ -12,9 +12,12 @@ import (
 
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/adapters/httpapi"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/adapters/postgres"
+	ordershttp "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/ordering/adapters/httpapi"
+	orderspostgres "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/ordering/adapters/postgres"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/config"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/migrations"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sync/errgroup"
 )
 
 func main() {
@@ -74,9 +77,17 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		return nil
 	}
 	store := &postgres.Store{Pool: pool}
+	orderStore := &orderspostgres.Store{Pool: pool}
 	if command == "worker" {
-		logger.Info("inventory projection worker started")
-		return store.Run(ctx, func(err error) { logger.Error("projection attempt failed", "error", err) })
+		logger.Info("Atlas inventory and ordering workers started")
+		group, workerContext := errgroup.WithContext(ctx)
+		group.Go(func() error {
+			return store.Run(workerContext, func(err error) { logger.Error("inventory worker attempt failed", "error", err) })
+		})
+		group.Go(func() error {
+			return orderStore.Run(workerContext, func(err error) { logger.Error("ordering projection attempt failed", "error", err) })
+		})
+		return group.Wait()
 	}
 	keys, err := config.TenantKeys(os.Getenv("ATLAS_TENANT_KEYS"))
 	if err != nil {
@@ -86,10 +97,15 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	if address == "" {
 		address = "127.0.0.1:8080"
 	}
-	server := &http.Server{Addr: address, Handler: httpapi.New(httpapi.Options{Store: store, TenantKeys: keys, Ready: func(ctx context.Context) error { return migrations.Check(ctx, pool) }, Logger: logger}), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
+	mux := http.NewServeMux()
+	orderHTTP := ordershttp.New(ordershttp.Options{Store: orderStore, TenantKeys: keys, Logger: logger})
+	mux.Handle("/v1/orders", orderHTTP)
+	mux.Handle("/v1/orders/", orderHTTP)
+	mux.Handle("/", httpapi.New(httpapi.Options{Store: store, TenantKeys: keys, Ready: func(ctx context.Context) error { return migrations.Check(ctx, pool) }, Logger: logger}))
+	server := &http.Server{Addr: address, Handler: mux, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
 	done := make(chan error, 1)
 	go func() { done <- server.ListenAndServe() }()
-	logger.Info("inventory API started", "address", address, "authentication", "development tenant keys")
+	logger.Info("Atlas API started", "address", address, "authentication", "development tenant keys")
 	select {
 	case err = <-done:
 		if errors.Is(err, http.ErrServerClosed) {

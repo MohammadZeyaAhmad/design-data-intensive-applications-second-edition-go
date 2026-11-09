@@ -23,6 +23,7 @@ import (
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/config"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/identity"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/migrations"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -42,24 +43,49 @@ func TestMain(m *testing.M) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	poolConfig, err := pgxpool.ParseConfig(dsn)
+	admin, err := pgxpool.New(ctx, dsn)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "invalid test database configuration")
+		fmt.Fprintln(os.Stderr, "could not initialize test administrator")
 		os.Exit(1)
 	}
-	poolConfig.MaxConns = 24
-	pool, err = pgxpool.NewWithConfig(ctx, poolConfig)
+	nonce, err := identity.NewID()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "could not initialize test database")
+		admin.Close()
 		os.Exit(1)
 	}
-	if err = migrations.Apply(ctx, pool); err != nil {
-		fmt.Fprintln(os.Stderr, "test migration failed:", err)
+	database := "atlas_test_run_" + strings.ReplaceAll(nonce, "-", "")
+	if _, err = admin.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{database}.Sanitize()); err != nil {
+		admin.Close()
+		fmt.Fprintln(os.Stderr, "integration tests require local CREATE DATABASE permission")
 		os.Exit(1)
 	}
-	store = &postgres.Store{Pool: pool}
-	code := m.Run()
-	pool.Close()
+	code := func() int {
+		defer func() {
+			cleanup, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if _, err := admin.Exec(cleanup, "DROP DATABASE "+pgx.Identifier{database}.Sanitize()+" WITH (FORCE)"); err != nil {
+				fmt.Fprintln(os.Stderr, "could not remove isolated test database")
+			}
+		}()
+		u.Path = "/" + database
+		poolConfig, err := pgxpool.ParseConfig(u.String())
+		if err != nil {
+			return 1
+		}
+		poolConfig.MaxConns = 24
+		pool, err = pgxpool.NewWithConfig(ctx, poolConfig)
+		if err != nil {
+			return 1
+		}
+		defer pool.Close()
+		if err = migrations.Apply(ctx, pool); err != nil {
+			fmt.Fprintln(os.Stderr, "test migration failed:", err)
+			return 1
+		}
+		store = &postgres.Store{Pool: pool}
+		return m.Run()
+	}()
+	admin.Close()
 	os.Exit(code)
 }
 

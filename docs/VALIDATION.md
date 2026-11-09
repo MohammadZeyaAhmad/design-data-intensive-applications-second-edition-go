@@ -1,4 +1,26 @@
-# Validation of the first implementation increment
+# Validation
+
+## Second increment: reservation lifecycle and event-sourced Ordering
+
+Recorded **10 November 2026**, using the same pinned Go/PostgreSQL development baseline below. All 19 real PostgreSQL integration tests passed with race detection in a fresh, disposable database. Domain, HTTP and architecture race tests and `go vet` also passed. The Ordering fuzz target completed **78,627 executions** with four workers in a bounded run.
+
+The real HTTP scenarios verified:
+
+- 100 competing reservations for ten units: 10 accepted, 90 rejected.
+- A one-second hold was expired by the worker, a late commit was rejected, and explicit allocation reversal was applied once.
+- 20 amendments expecting order version 1: one accepted and 19 version conflicts; history contained versions 1, 2 and 3.
+- Operator snapshot at version 2, reconstruction at version 3, and agreement with the asynchronous view.
+- Both inventory and order commands committed during worker downtime; their projections caught up after restart. Retrying both commands after API restart returned their original saved responses.
+
+Additional database tests cover post-lock expiry time, expiry/release races, committed allocation protection, immutable event guards, transactional rollback of a partly applied event batch, legacy event upcasting, unsupported-schema quarantine, snapshot checksum/schema fallback, keyset pagination, concurrent appends during reconstruction, deletion/reconstruction of a view, and resumption of live processing.
+
+Run `make verify-lifecycle verify-orders verify-recovery` after `make up`. `make integration` now creates and drops its own `atlas_test_run_*` database under the explicit local test binding and requires database-creation permission. It never disables the event immutability trigger to clean up.
+
+Reports are in ignored `artifacts/inventory-lifecycle.json`, `artifacts/orders.json`, and `artifacts/recovery.json`. The two versioned scenario manifests link verified behaviors to package IDs and evidence paths. Entire-package completion remains a separate review gate.
+
+This increment adds current-state order intent without Catalog price authority or payment/shipment orchestration. Per-stream rebuild briefly blocks that stream; all-stream shadow-generation migration, full correlation/actor envelopes, Kafka delivery, retention/erasure, and production database roles remain tracked work.
+
+## First increment evidence
 
 Recorded **10 November 2026** in a managed Linux amd64 development environment, using **Go 1.27.3**, Docker **28.4.0**, and a pinned PostgreSQL image whose running server reports **18.6**. The database, API, and worker were real local processes/containers. These results do not establish the eventual production SLOs or full-book completion.
 

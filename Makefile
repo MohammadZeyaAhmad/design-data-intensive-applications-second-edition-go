@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 .NOTPARALLEL:
-.PHONY: configure doctor build up down test integration verify verify-live verify-recovery demo coverage-check lab fmt
+.PHONY: configure doctor build up down test integration verify verify-live verify-lifecycle verify-orders verify-recovery demo demo-orders coverage-check lab fmt
 COMPOSE = docker compose --env-file .env -f deploy/compose/compose.yaml -p ddia-go
 
 configure:
@@ -23,11 +23,17 @@ integration:
 	go test -race -tags=integration -count=1 ./tests/integration
 verify-live:
 	go run ./cmd/guide verify-live
+verify-lifecycle:
+	go run ./cmd/guide verify-lifecycle
+verify-orders:
+	go run ./cmd/guide verify-orders
 verify-recovery:
 	go run ./cmd/guide verify-recovery
-verify: test integration coverage-check lab verify-live verify-recovery
+verify: test integration coverage-check lab verify-live verify-lifecycle verify-orders verify-recovery
 demo:
 	go run ./cmd/guide demo
+demo-orders:
+	go run ./cmd/guide demo-orders
 coverage-check:
 	go run ./cmd/guide coverage
 lab:

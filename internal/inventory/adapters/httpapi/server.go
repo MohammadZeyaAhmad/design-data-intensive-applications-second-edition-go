@@ -2,12 +2,9 @@ package httpapi
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
-	"mime"
 	"net/http"
 	"strconv"
 	"strings"
@@ -18,6 +15,8 @@ import (
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/features/receivestock"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/features/reservestock"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/ports"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/auth"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/httpx"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/identity"
 )
 
@@ -28,7 +27,6 @@ type Options struct {
 	Logger     *slog.Logger
 }
 type server struct{ Options }
-type tenantKey struct{}
 
 func New(o Options) http.Handler {
 	if o.Logger == nil {
@@ -53,45 +51,20 @@ func New(o Options) http.Handler {
 	mux.Handle("GET /v1/reservations/{id}", s.auth(http.HandlerFunc(s.reservation)))
 	mux.Handle("POST /v1/reservations/{id}/commit", s.auth(http.HandlerFunc(s.change)))
 	mux.Handle("POST /v1/reservations/{id}/release", s.auth(http.HandlerFunc(s.change)))
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-store")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-		defer cancel()
-		defer func() {
-			if recover() != nil {
-				s.Logger.Error("request panic")
-				problem(w, 500, "internal_error")
-			}
-		}()
-		mux.ServeHTTP(w, r.WithContext(ctx))
-	})
+	mux.Handle("POST /v1/reservations/{id}/reverse", s.auth(http.HandlerFunc(s.change)))
+	return httpx.Guard(mux, o.Logger)
 }
 
 func (s server) auth(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		key, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if !ok || len(key) > 256 {
-			w.Header().Set("WWW-Authenticate", "Bearer")
-			problem(w, 401, "unauthorized")
-			return
-		}
-		tenant, ok := s.TenantKeys[sha256.Sum256([]byte(key))]
-		if !ok {
-			w.Header().Set("WWW-Authenticate", "Bearer")
-			problem(w, 401, "unauthorized")
-			return
-		}
-		// Tenant identity is bound to the credential, never selected by a body
-		// field or X-Tenant-ID header supplied by the caller.
+	return auth.Middleware(s.TenantKeys)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("If-Match") != "" {
-			problem(w, http.StatusBadRequest, "conditional_requests_not_supported")
+			problem(w, 400, "conditional_requests_not_supported")
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), tenantKey{}, tenant)))
-	})
+		next.ServeHTTP(w, r)
+	}))
 }
-func tenant(r *http.Request) string { return r.Context().Value(tenantKey{}).(string) }
+func tenant(r *http.Request) string { return auth.Tenant(r.Context()) }
 
 func (s server) receive(w http.ResponseWriter, r *http.Request) {
 	var input struct {
@@ -126,6 +99,9 @@ func (s server) change(w http.ResponseWriter, r *http.Request) {
 	target := domain.ReservationReleased
 	if strings.HasSuffix(r.URL.Path, "/commit") {
 		target = domain.ReservationCommitted
+	}
+	if strings.HasSuffix(r.URL.Path, "/reverse") {
+		target = domain.ReservationReversed
 	}
 	out, replayed, err := (changereservation.Handler{Store: s.Store}).Handle(r.Context(), tenant(r), r.Header.Get("Idempotency-Key"), changereservation.Command{ID: r.PathValue("id"), Target: target})
 	s.result(w, 200, out, replayed, err)
@@ -189,6 +165,8 @@ func (s server) failure(w http.ResponseWriter, err error) {
 		problem(w, 409, "idempotency_conflict")
 	case errors.Is(err, domain.ErrInvalidTransition):
 		problem(w, 409, "invalid_transition")
+	case errors.Is(err, domain.ErrReservationExpired):
+		problem(w, 409, "reservation_expired")
 	case errors.Is(err, domain.ErrConflict):
 		problem(w, 409, "concurrent_modification")
 	case errors.Is(err, context.DeadlineExceeded):
@@ -201,29 +179,7 @@ func (s server) failure(w http.ResponseWriter, err error) {
 	}
 }
 func decode(w http.ResponseWriter, r *http.Request, target any) bool {
-	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-	if err != nil || media != "application/json" {
-		problem(w, 415, "unsupported_media_type")
-		return false
-	}
-	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
-	d := json.NewDecoder(r.Body)
-	d.DisallowUnknownFields()
-	if err = d.Decode(target); err != nil {
-		problem(w, 400, "invalid_json")
-		return false
-	}
-	if err = d.Decode(new(any)); !errors.Is(err, io.EOF) {
-		problem(w, 400, "invalid_json")
-		return false
-	}
-	return true
+	return httpx.Decode(w, r, target)
 }
-func write(w http.ResponseWriter, status int, value any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(value)
-}
-func problem(w http.ResponseWriter, status int, code string) {
-	write(w, status, map[string]any{"error": map[string]string{"code": code}})
-}
+func write(w http.ResponseWriter, status int, value any)     { httpx.JSON(w, status, value) }
+func problem(w http.ResponseWriter, status int, code string) { httpx.Problem(w, status, code) }

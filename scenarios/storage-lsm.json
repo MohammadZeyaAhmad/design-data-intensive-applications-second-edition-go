@@ -1,0 +1,8 @@
+{
+  "id": "storage-lsm",
+  "status": "verified",
+  "work_packages": ["APP-01", "C04-01"],
+  "commands": ["make verify-storage", "make verify ID=C04-01", "go run ./cmd/guide verify-storage", "cd labs && go test -run '^$' -fuzz '^FuzzRecordDecoder$' -fuzztime=5s -parallel=2 ./ch04/lsm"],
+  "assertions": ["both compaction styles match a map under random updates, deletes, scans and reopens", "WAL header/body checksums and sequence checks reject complete corruption", "only an incomplete final WAL frame is truncated", "sparse indexes seek points and range starts", "Bloom filters have no fixture false negatives and include deletion markers", "partial compaction cannot resurrect deleted data", "new file IDs cannot override newer record sequences", "full compaction safely removes obsolete versions and tombstones", "manifest publication precedes obsolete-file deletion and covered-WAL reset", "every modeled filesystem crash retains a valid durable prefix", "21 real process-kill boundaries preserve acknowledged writes", "single-writer locks exclude handles in the same and other processes", "append-log, tiered, leveled and bbolt stores produce the same state after reopening", "reports identify durability, repetitions, filesystem, cache assumptions and raw timings"],
+  "evidence": ["labs/ch04/lsm/db_test.go", "labs/ch04/lsm/crashfs_test.go", "labs/ch04/lsm/process_test.go", "labs/ch04/embedded/bbolt.go", "labs/ch04/storage/scenario.go", "labs/ch04/storage/scenario_test.go", "docs/chapters/ch04/log-structured-storage.md"]
+}

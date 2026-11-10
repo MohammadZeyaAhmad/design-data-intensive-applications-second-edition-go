@@ -33,7 +33,15 @@ verify-orders:
 	go run ./cmd/guide verify-orders
 verify-recovery:
 	go run ./cmd/guide verify-recovery
-verify: test integration coverage-check lab verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery
+ifeq ($(strip $(ID)),)
+verify: test integration coverage-check lab storage-demo verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery
+else ifeq ($(ID),C04-01)
+verify: verify-storage
+else
+verify:
+	@echo 'Scoped verification currently supports ID=C04-01; other plan IDs remain future interfaces.' >&2
+	@exit 2
+endif
 demo:
 	go run ./cmd/guide demo
 demo-orders:
@@ -90,3 +98,10 @@ down-temporal-test:
 	ATLAS_TEMPORAL_PORT=17233 ATLAS_TEMPORAL_UI_PORT=18233 $(COMPOSE_TEMPORAL_TEST) down
 verify-temporal:
 	ATLAS_CHECKOUT_ENGINE=temporal go run ./cmd/guide verify-temporal
+
+.PHONY: storage-test storage-demo verify-storage
+storage-test:
+	cd labs && go test -race -count=1 ./ch04/...
+storage-demo:
+	cd labs && go run ./cmd/lab lsm -output ../artifacts/storage.json
+verify-storage: coverage-check storage-test storage-demo

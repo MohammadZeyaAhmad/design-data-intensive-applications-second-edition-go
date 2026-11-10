@@ -100,7 +100,7 @@
     },
     {
       "id": "C04-01",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "id": "C04-02",
@@ -362,6 +362,7 @@
     "scenarios/warehouse-fulfillment.json",
     "scenarios/workflow-operations.json",
     "scenarios/kafka-transport.json",
-    "scenarios/temporal-checkout.json"
+    "scenarios/temporal-checkout.json",
+    "scenarios/storage-lsm.json"
   ]
 }

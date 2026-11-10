@@ -28,16 +28,28 @@ jobs:
         with:
           go-version: '1.27.3'
           cache: true
+          cache-dependency-path: |
+            go.sum
+            labs/go.sum
       - name: Formatting
         run: test -z "$(gofmt -l cmd contracts internal migrations tests labs)"
       - name: Application and lab tests, including race detection
         run: make test
       - name: Real PostgreSQL concurrency and failure tests
         run: make integration
-      - name: Source inventory and first executable lab
-        run: make coverage-check lab
+      - name: Source inventory and executable storage comparisons
+        run: make coverage-check lab storage-demo
+      - name: Bounded storage record fuzzing
+        run: cd labs && go test -run '^$' -fuzz '^FuzzRecordDecoder$' -fuzztime=5s -parallel=2 ./ch04/lsm
+      - name: Retain storage comparison report
+        uses: actions/upload-artifact@v4
+        with:
+          name: storage-comparison
+          path: artifacts/storage.json
       - name: Verify application builds independently of the lab workspace
-        run: GOWORK=off go build ./cmd/atlas ./cmd/guide ./cmd/admin
+        run: |
+          GOWORK=off go build ./cmd/atlas ./cmd/guide ./cmd/admin
+          cd labs && GOWORK=off go build -o ../artifacts/lab-standalone ./cmd/lab
       - name: Start disposable API and worker stack
         run: make up
       - name: Live HTTP contention and restart recovery

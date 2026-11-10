@@ -1,5 +1,21 @@
 # Validation
 
+## Eighth increment: persistent LSM and embedded storage comparison
+
+Recorded **10 November 2026** with Go **1.27.3** on Linux amd64 and bbolt **1.4.3**. Application and lab race tests, architecture checks, vet, separate application/lab builds, the scoped storage target and the root guide command passed. The original application integration suite remains 71 PostgreSQL, three Kafka and three Temporal tests; this increment adds storage tests in the independent lab module.
+
+Both compaction styles passed random insert/update/delete/get/scan schedules against a map, with repeated reopening. Dedicated tests cover partial-merge tombstone retention, older data rewritten into a newer file, safe full-compaction deletion, empty values, binary keys, copied results, same-process and cross-process writer exclusion, corruption/missing-file rejection, every incomplete final-frame length, and sparse-index seeks for points and ranges. Repeated overwrites of one large value also force WAL rollover/compaction while the live memtable stays small.
+
+An independent filesystem model explores a crash after every mutation of a fixed multi-checkpoint schedule across both styles and sync/async modes. Its variants distinguish inode contents from directory names, allow early data/manifest-rename/deletion persistence and exercise short writes. Recovery must retain the required acknowledged/fenced prefix and match the complete map at its recovered sequence. The real filesystem suite additionally SIGKILLs child processes at **21 named boundaries** covering WAL writes/syncs, table writes/syncs/renames, both directory fences, manifest publication, WAL reset and compaction cleanup.
+
+The record decoder fuzz target completed **313,440 executions in eight seconds with two workers**, without failure. Real process-kill tests ran on the system temporary filesystem; that validates process recovery with an intact OS page cache. Power-loss evidence comes from the declared filesystem model, not a physical device power cut.
+
+The default comparison used **512 synthetic warehouse keys, three fresh runs per engine**, synchronous individual mutations, 171 overwrites and 74 deletes. Append-log, size-tiered LSM, leveled LSM and bbolt produced identical state digests after reopening. Before full compaction their observed file sizes were 90,136; 95,709; 93,691; and 262,144 bytes respectively. These include each format's metadata/allocation behavior. The full-compaction check preserved live state and reduced the two LSM layouts to about 58.5 KB.
+
+Reports identify Go/OS/architecture, exact engine options, row/repetition counts, sync policy, filesystem type/block size, cache assumptions, raw timings/percentiles and instrumented bytes/counters. Initial system-temp trials reported `tmpfs`; the default report command now creates private temporary children beside its output and reports **overlayfs** in this workspace. Physical backing hardware is unidentified, caches are uncontrolled, and the measurements establish no general performance ranking. `-workdir` allows an explicit parent filesystem without adopting or deleting a caller's database.
+
+Generated comparison evidence is in ignored `artifacts/storage.json`; CI retains it as `storage-comparison`. The [storage manifest](../scenarios/storage-lsm.json) joins the other seven scenario manifests, retaining the original 88-package scope: **21 packages in progress, 67 planned**. C04-01 remains in progress for the full sub-concept audit, compression and broader format/scale stress. Custom B+ tree, controlled warm/cold/device benchmarks and the remaining storage packages are still planned. See the [guide](STORAGE.md), [chapter walkthrough](chapters/ch04/log-structured-storage.md) and [recovery runbook](runbooks/storage-recovery.md).
+
 ## Seventh increment: Temporal durable execution
 
 Recorded **10 November 2026**, using Go 1.27.3, PostgreSQL 18.6, Temporal Go SDK **1.37.0** and pinned Temporal CLI **1.4.1** development-server image. The normal suite now has **71 PostgreSQL integration tests**, with **three real-Kafka** and **three real-Temporal** tests behind dedicated profiles. Each real-Temporal worker-loss test covers five stage subcases: reserve, capture, allocation, confirmation and compensation.

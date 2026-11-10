@@ -18,6 +18,8 @@ The sixth increment adds a pinned optional Kafka profile for four delivery lanes
 
 The seventh increment adds a real Temporal checkout adapter using the same business feature, immutable engine ownership, atomic activity result receipts, durable control wake signals, native cancellation compensation, bounded workflow histories and supported versioning. The suite now has **71 PostgreSQL integration tests**, **three real-Kafka tests**, and **three real-Temporal tests**, including worker replacement after five external stages and replay of an actual pre-version-marker history. Both checkout engines pass the same HTTP business outcome suite. A real server/worker SIGKILL drill preserves run identity and recovers an in-flight payment after natural lease expiry.
 
+The eighth increment adds a persistent Go LSM storage lab with checksummed WAL framing, sorted immutable runs, sparse indexes, Bloom filters, tombstones, size-tiered and leveled compaction, atomic manifests, sync/async durability fences and a single-writer lock. Map-oracle tests, an independent power-loss filesystem model and **21 real process-kill boundaries** verify recovery. A synthetic warehouse workload compares the append-log baseline, both policies and **bbolt 1.4.3**, with repeated timing/space reports. Production contexts retain PostgreSQL authority.
+
 These pieces begin several large work packages; they do not complete those packages in full.
 
 | Plan package | Current status | Remaining scope |
@@ -41,14 +43,15 @@ These pieces begin several large work packages; they do not complete those packa
 | C08-08 | In progress: atomic owner receipts across database/broker acknowledgment boundaries | Full XA/acknowledgment comparisons and broader external-effect scenarios |
 | C12-01 | In progress: real durable broker delivery, duplicate/poison handling and bounded receipt/application boundaries | Queue/broker models, routing/fan-out, expiry/backpressure comparisons |
 | C12-02 | In progress: pinned Kafka profile, partition mapping, consumer groups, acknowledgment loss, rebalance and process recovery | Segmented-log broker, retention/lag/disk experiments, replicated durability and offset migration |
+| C04-01 | In progress: append log, WAL/SSTables, sparse/Bloom indexes, two policies, durable manifest recovery, model/process fault tests and mature-engine comparison | Full sub-concept audit, compression and broader format/scale stress |
 | C05-05 | In progress: real Temporal workflow/activities, durable timers/signals, result receipts, versioned replay and restart evidence | Production deployment/retention, history repair and worker deployment routing |
 | Remaining packages | Planned | See the complete backlog; none is silently removed |
 
 ## Next implementation sequence
 
-1. Implement the storage-engine laboratories with crash recovery and comparative benchmarks.
+1. Implement the custom B+ tree, then deepen storage-format, compression and amplification comparisons.
 2. Continue data models, replication, sharding, analytics and governance work against the full source inventory; deepen remaining application/operations work alongside them.
 
-[Machine-readable progress](progress.json) retains all 88 package IDs. The [inventory lifecycle](../scenarios/inventory-lifecycle.json) and [Ordering](../scenarios/ordering-events.json) scenario manifests, together with [checkout/payments](../scenarios/checkout-payments.json), [warehouse/Fulfillment](../scenarios/warehouse-fulfillment.json), [workflow operations](../scenarios/workflow-operations.json), [Kafka transport](../scenarios/kafka-transport.json), and [Temporal checkout](../scenarios/temporal-checkout.json), record verified behaviors and evidence paths; they do not declare the much larger associated packages complete. `make coverage-check` validates their package IDs and file references in addition to the book inventory.
+[Machine-readable progress](progress.json) retains all 88 package IDs. The [inventory lifecycle](../scenarios/inventory-lifecycle.json) and [Ordering](../scenarios/ordering-events.json) scenario manifests, together with [checkout/payments](../scenarios/checkout-payments.json), [warehouse/Fulfillment](../scenarios/warehouse-fulfillment.json), [workflow operations](../scenarios/workflow-operations.json), [Kafka transport](../scenarios/kafka-transport.json), [Temporal checkout](../scenarios/temporal-checkout.json), and [storage/LSM](../scenarios/storage-lsm.json), record verified behaviors and evidence paths; they do not declare the much larger associated packages complete. `make coverage-check` validates their package IDs and file references in addition to the book inventory.
 
 Real payment/carrier-network integration, returns, single-SKU warehouse splits, Kubernetes deployment, backup/restore workflows, Raft, CDC, and complete storage engines remain unfinished. Current capabilities are defined by the source and recorded validation, not by the eventual project scope.

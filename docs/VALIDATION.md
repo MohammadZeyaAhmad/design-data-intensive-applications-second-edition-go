@@ -1,5 +1,17 @@
 # Validation
 
+## Sixth increment: Kafka transport and receipt failure boundaries
+
+Recorded **10 November 2026** with Go 1.27.3, PostgreSQL 18.6 and pinned Apache Kafka **4.1.1**. The normal PostgreSQL suite has **65 integration tests**, with **three additional real-Kafka tests** in the dedicated local broker profile. `make verify` passed in the PostgreSQL profile, including race/unit/architecture checks and vet. The Kafka profile also passed every existing HTTP/lifecycle/restart scenario, including Ordering, checkout, warehouse Fulfillment and operator recovery.
+
+Ten new database tests cover uncertain source publication, locked publication/inbox prefixes, duplicate owner invocation after owner commit, durable invalid-wire rejection, immutable identity conflicts and audited retry, poison-stream isolation on a shared partition, authoritative-source validation, Ordering projection/rebuild convergence, and request identity across Kafka/local profile fallback. These database counterexamples use an injected publisher where appropriate; they are distinct from broker evidence.
+
+The isolated Kafka tests produced two physical records for one logical event after an injected post-broker-acknowledgment error, lost the consumer checkpoint after durable staging, verified redelivery and one projection receipt, injected database-stage failure before receipt, and observed a stable two-member consumer group before removing a member and publishing the remainder of an 18-event stream. All resulting owner projections matched their source prefix. The separate test broker runs at loopback 19093; its PostgreSQL database is disposable. It never uses the development Kafka cluster for these injected failure tests.
+
+`make verify-kafka` stopped the development broker consumer after source publication and observed the absent projection, then restored consumption. It stopped Kafka, accepted another real HTTP stock command, killed the publisher and restored both using retained volumes. The projection caught up. New physical duplicate records retained one owner effect; malformed wire was durably rejected; a conflicting logical identity fenced later work for that stream; and the actual scoped CLI retried the retained original with an immutable audit/saved response. The report is in ignored `artifacts/kafka.json`.
+
+This is one broker, replication factor 1, one application inbox generation and a modular application using owner schemas in one PostgreSQL instance. It does not demonstrate replicated broker failover, certified broker data-loss/retention-overrun recovery, Kafka transactions, CDC, independent databases, production broker security, generalized offset migration or the planned segmented-log implementation. See [contracts](MESSAGING.md) and [recovery](runbooks/kafka-recovery.md).
+
 ## Fifth increment: provenance and audited workflow controls
 
 Recorded **10 November 2026** with the same Go 1.27.3/PostgreSQL 18.6 baseline. `make verify` passed all existing and new live/restart scenarios. The current PostgreSQL suite has **55 integration tests**, including thirteen new lineage/control tests, with race detection and isolated fresh databases. Domain/architecture/HTTP checks and vet also pass.

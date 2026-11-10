@@ -7,9 +7,11 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
+	api "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/messaging"
 	cathttp "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/catalog/adapters/httpapi"
 	catdb "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/catalog/adapters/postgres"
 	checkhttp "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/checkout/adapters/httpapi"
@@ -29,6 +31,7 @@ import (
 	paydb "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/payments/adapters/postgres"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/payments/adapters/provider"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/config"
+	inboxdb "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/messaging/postgres"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/migrations"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/sync/errgroup"
@@ -46,10 +49,10 @@ func main() {
 
 func run(ctx context.Context, logger *slog.Logger) error {
 	if len(os.Args) != 2 {
-		return errors.New("usage: atlas serve|worker|provider|migrate|check")
+		return errors.New("usage: atlas serve|worker|provider|migrate|check|broker-init|broker-publisher|broker-consumer|broker-status")
 	}
 	command := os.Args[1]
-	if command != "serve" && command != "worker" && command != "migrate" && command != "check" && command != "provider" {
+	if command != "serve" && command != "worker" && command != "migrate" && command != "check" && command != "provider" && command != "broker-init" && command != "broker-publisher" && command != "broker-consumer" && command != "broker-status" {
 		return errors.New("unknown atlas command")
 	}
 	if err := config.LoadLocalEnv(".env"); err != nil {
@@ -91,6 +94,9 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		return nil
 	}
 
+	if strings.HasPrefix(command, "broker-") {
+		return brokerCommand(ctx, logger, pool, command)
+	}
 	if command == "provider" {
 		token := os.Getenv("ATLAS_PROVIDER_TOKEN")
 		if len(token) < 32 {
@@ -119,13 +125,30 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	checkoutWorker := checkrun.Worker{Store: checkoutStore, Orders: orderStore, Handler: advance.Handler{Inventory: postgres.Workflow{Store: store}, Payments: paymentStore, Orders: orderCheckout}}
 	fulfillmentStore := &fulfilldb.Store{Pool: pool}
 	fulfillmentWorker := fulfillrun.Worker{Store: fulfillmentStore, Orders: orderStore, Handler: fulfilldispatch.Handler{Inventory: postgres.Workflow{Store: store}}}
+	transport := os.Getenv("ATLAS_MESSAGE_TRANSPORT")
+	if transport == "" {
+		transport = "postgres"
+	}
+	if transport != "postgres" && transport != "kafka" {
+		return errors.New("unknown message transport")
+	}
+	if transport == "kafka" {
+		checkoutWorker.Orders = nil
+		fulfillmentWorker.Orders = nil
+	}
 	if command == "worker" {
 		logger.Info("Atlas inventory, ordering, checkout and fulfillment workers started")
 		group, workerContext := errgroup.WithContext(ctx)
 		group.Go(func() error {
+			if transport == "kafka" {
+				return store.RunExpiry(workerContext, func(err error) { logger.Error("inventory expiry retry", "error", err) })
+			}
 			return store.Run(workerContext, func(err error) { logger.Error("inventory worker attempt failed", "error", err) })
 		})
 		group.Go(func() error {
+			if transport == "kafka" {
+				return (inboxdb.Inbox{Pool: pool, Group: api.Group}).Run(workerContext, brokerHandler(store, orderStore, checkoutStore, fulfillmentStore), func(error) { logger.Error("inbox application retry") })
+			}
 			return orderStore.Run(workerContext, func(err error) { logger.Error("ordering projection attempt failed", "error", err) })
 		})
 		group.Go(func() error {

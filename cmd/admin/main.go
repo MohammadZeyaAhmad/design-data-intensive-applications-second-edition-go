@@ -17,6 +17,7 @@ import (
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/ordering/adapters/postgres"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/config"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/identity"
+	inboxdb "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/messaging/postgres"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/operator"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/migrations"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -30,18 +31,19 @@ func main() {
 }
 func run() error {
 	if len(os.Args) < 2 {
-		return errors.New("usage: admin snapshot-order|rebuild-order|workflow-status|workflow-control|workflow-history -tenant TENANT -id UUID")
+		return errors.New("usage: admin snapshot-order|rebuild-order|workflow-status|workflow-control|workflow-history|inbox-retry -tenant TENANT -id UUID")
 	}
 	mode := os.Args[1]
-	if mode != "snapshot-order" && mode != "rebuild-order" && mode != "workflow-status" && mode != "workflow-control" && mode != "workflow-history" {
+	if mode != "snapshot-order" && mode != "rebuild-order" && mode != "workflow-status" && mode != "workflow-control" && mode != "workflow-history" && mode != "inbox-retry" {
 		return errors.New("unknown admin operation")
 	}
 	flags := flag.NewFlagSet(mode, flag.ContinueOnError)
 	tenant := flags.String("tenant", "", "tenant owning this stream")
 	id := flags.String("id", "", "resource UUID")
+	topic := flags.String("topic", "", "exact broker topic for inbox-retry")
 	kind := flags.String("kind", "", "checkout or shipment")
 	action := flags.String("action", "", "pause, resume, or retry")
-	reason := flags.String("reason", "", "investigation, dependency_restored, or operator_retry")
+	reason := flags.String("reason", "", "investigation, dependency_restored, operator_retry, consumer_upgraded, or source_verified")
 	key := flags.String("key", "", "stable command idempotency key")
 	expected := flags.Int64("expected-control-version", -1, "required current control version")
 	after := flags.Int64("after-version", 0, "exclusive control history version")
@@ -56,8 +58,8 @@ func run() error {
 	if strings.HasPrefix(mode, "workflow-") && (*kind != "checkout" && *kind != "shipment") {
 		return errors.New("workflow kind must be checkout or shipment")
 	}
-	if mode == "workflow-control" && (*expected < 0 || *key == "" || *action == "" || *reason == "") {
-		return errors.New("workflow control requires action, reason, key, and expected-control-version")
+	if (mode == "workflow-control" || mode == "inbox-retry") && (*expected < 0 || *key == "" || (mode == "workflow-control" && *action == "") || *reason == "") {
+		return errors.New("control requires reason, key and expected-control-version; workflow-control also requires action")
 	}
 	if *correlation != "" && !envelope.ValidID(*correlation) {
 		return errors.New("invalid correlation UUID")
@@ -80,7 +82,7 @@ func run() error {
 	if err = migrations.Check(ctx, pool); err != nil {
 		return err
 	}
-	if strings.HasPrefix(mode, "workflow-") {
+	if strings.HasPrefix(mode, "workflow-") || mode == "inbox-retry" {
 		ctx, err = operator.Local(ctx, *tenant)
 		if err != nil {
 			return err
@@ -94,6 +96,13 @@ func run() error {
 			corr = requestID
 		}
 		ctx = envelope.With(ctx, envelope.Metadata{Version: 1, Actor: "operator:local", CorrelationID: corr, CausationID: requestID, OriginRequestID: requestID})
+		if mode == "inbox-retry" {
+			out, replayed, err := (inboxdb.Inbox{Pool: pool}).Retry(ctx, inboxdb.Retry{TenantID: *tenant, Topic: *topic, ID: *id, Key: *key, Reason: *reason, ExpectedVersion: *expected})
+			if err != nil {
+				return err
+			}
+			return json.NewEncoder(os.Stdout).Encode(map[string]any{"result": out, "replayed": replayed})
+		}
 		var target api.Workflow
 		if *kind == "checkout" {
 			target = &checkoutdb.Store{Pool: pool}

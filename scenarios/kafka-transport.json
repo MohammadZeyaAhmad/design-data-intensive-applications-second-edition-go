@@ -1,0 +1,8 @@
+{
+  "id": "kafka-transport",
+  "status": "verified",
+  "work_packages": ["APP-06", "C08-08", "C12-01", "C12-02", "C13-05"],
+  "commands": ["make integration", "make integration-kafka", "make verify-kafka", "ATLAS_MESSAGE_TRANSPORT=kafka make verify-checkout verify-fulfillment"],
+  "assertions": ["uncertain broker publication retries the same source identity", "locked source and inbox prefixes cannot be overtaken", "durable staging precedes Kafka offset acknowledgment", "failed staging replays rather than skipping to a later record", "consumer checkpoint loss and group rebalance retain the source prefix", "owner effect and receipt prevent duplicate business effects", "poison streams remain isolated on a shared partition", "wire and logical identity conflicts preserve evidence", "source validation prevents transport from overriding authority", "profile fallback preserves request identity", "broker outage and publisher kill recover accepted work", "scoped inbox retry preserves retained payload and audit identity"],
+  "evidence": ["tests/integration/messaging_test.go", "tests/integration/kafka_test.go", "contracts/messaging/message_test.go", "cmd/guide/kafka.go"]
+}

@@ -288,11 +288,11 @@
     },
     {
       "id": "C12-01",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "id": "C12-02",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "id": "C12-03",
@@ -360,6 +360,7 @@
     "scenarios/inventory-lifecycle.json",
     "scenarios/ordering-events.json",
     "scenarios/warehouse-fulfillment.json",
-    "scenarios/workflow-operations.json"
+    "scenarios/workflow-operations.json",
+    "scenarios/kafka-transport.json"
   ]
 }

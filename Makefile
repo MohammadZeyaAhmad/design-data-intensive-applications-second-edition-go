@@ -1,6 +1,8 @@
 SHELL := /bin/bash
 .NOTPARALLEL:
 .PHONY: configure doctor build up down test integration verify verify-live verify-lifecycle verify-orders verify-recovery demo demo-orders demo-checkout verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations coverage-check lab fmt
+COMPOSE_KAFKA_TEST = docker compose --env-file .env -f deploy/compose/compose.yaml -f deploy/compose/kafka.yaml -p ddia-go-broker-test
+COMPOSE_KAFKA = docker compose --env-file .env -f deploy/compose/compose.yaml -f deploy/compose/kafka.yaml -p ddia-go
 COMPOSE = docker compose --env-file .env -f deploy/compose/compose.yaml -p ddia-go
 
 configure:
@@ -54,3 +56,20 @@ verify-fulfillment-recovery:
 
 verify-operations:
 	go run ./cmd/guide verify-operations
+
+.PHONY: up-kafka down-kafka verify-kafka
+up-kafka: configure build
+	$(COMPOSE_KAFKA) up --build -d
+	ATLAS_MESSAGE_TRANSPORT=kafka go run ./cmd/guide wait
+down-kafka:
+	$(COMPOSE_KAFKA) down
+verify-kafka:
+	ATLAS_MESSAGE_TRANSPORT=kafka go run ./cmd/guide verify-kafka
+
+.PHONY: integration-kafka down-kafka-test
+integration-kafka: configure
+	ATLAS_KAFKA_PORT=19093 $(COMPOSE_KAFKA_TEST) up -d --wait kafka
+	ATLAS_KAFKA_TEST_BROKERS=127.0.0.1:19093 go test -race -tags=integration,kafka -run '^TestKafka(Real|Consumer)' -count=1 ./tests/integration
+	ATLAS_KAFKA_PORT=19093 $(COMPOSE_KAFKA_TEST) down
+down-kafka-test:
+	ATLAS_KAFKA_PORT=19093 $(COMPOSE_KAFKA_TEST) down

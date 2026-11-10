@@ -36,7 +36,7 @@ The response is 202 with a checkout UUID, order UUID, accepted price snapshot an
 | `POST /v1/checkouts/{id}/cancel` | Empty body; idempotently request cancellation of a nonterminal workflow; 202 acknowledges the request |
 | `GET /v1/orders/{id}` | Authoritative domain state, including immutable accepted pricing and eventual confirmation/failure |
 
-The workflow record is created asynchronously, so its first read may return 404 briefly after acceptance. Nonterminal phases are `reserving`, `capturing`, `allocating`, `confirming`, and `compensating`. Final workflow states are `confirmed`, `failed`, and `cancelled`.
+The workflow record is created asynchronously, so its first read may return 404 after acceptance. In the [Kafka profile](MESSAGING.md), broker publication/receipt is another durable handoff; the job can remain absent during a broker outage even though the source order accepted checkout. Nonterminal phases are `reserving`, `capturing`, `allocating`, `confirming`, and `compensating`. Final workflow states are `confirmed`, `failed`, and `cancelled`.
 
 A cancellation request can lose a race with confirmation. The source aggregate decides which transition wins; a confirmed order is preserved rather than refunded by a stale compensator. On failure, the order may already show `checkout_failed` while the workflow remains `compensating`. Financial/resource cleanup is complete only when the workflow reaches its final state. A paused workflow waits for an operator resume, including after a cancellation request; see [local controls](OPERATIONS.md).
 

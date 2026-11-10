@@ -37,7 +37,11 @@ func (w Worker) Run(ctx context.Context, onError func(error)) error {
 			return ctx.Err()
 		}
 		step, cancel := context.WithTimeout(ctx, 5*time.Second)
-		sent, err := w.Orders.DispatchFulfillmentOne(step, w.Store)
+		var sent bool
+		var err error
+		if w.Orders != nil {
+			sent, err = w.Orders.DispatchFulfillmentOne(step, w.Store)
+		}
 		if err != nil && ctx.Err() == nil {
 			onError(err)
 		}

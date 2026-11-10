@@ -8,6 +8,7 @@ x-app: &app
   environment: &environment
     ATLAS_DATABASE_URL: postgresql://atlas:${POSTGRES_PASSWORD:?run make configure}@postgres:5432/atlas_dev?sslmode=disable
     NO_PROXY: postgres,api,provider,localhost,127.0.0.1
+    ATLAS_MESSAGE_TRANSPORT: postgres
     ATLAS_PROVIDER_URL: http://provider:8080
     ATLAS_PROVIDER_TOKEN: ${ATLAS_PROVIDER_TOKEN:?run make configure}
   init: true

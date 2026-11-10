@@ -2,7 +2,7 @@
 
 A practical companion to **Designing Data-Intensive Applications, second edition** by Martin Kleppmann and Chris Riccomini. The goal is one cohesive Go backend and a complete set of connected data-system experiments, with equal emphasis on learning and production engineering.
 
-**Implementation is in progress.** Working code includes Catalog quotes, transactional Inventory, event-sourced Ordering, a durable checkout process manager, and a simulated provider with an immutable payment journal, warehouse inventory, durable Fulfillment, versioned provenance and audited local workflow controls. The [complete plan](docs/plan/ddia-go-mega-project-plan.md), [88-package backlog](docs/plan/implementation-backlog.md), and [current status](docs/STATUS.md) distinguish the eventual scope from working code.
+**Implementation is in progress.** Working code includes Catalog quotes, transactional Inventory, event-sourced Ordering, a durable checkout process manager, and a simulated provider with an immutable payment journal, warehouse inventory, durable Fulfillment, versioned provenance, audited local workflow controls, and an optional real Kafka transport. The [complete plan](docs/plan/ddia-go-mega-project-plan.md), [88-package backlog](docs/plan/implementation-backlog.md), and [current status](docs/STATUS.md) distinguish the eventual scope from working code.
 
 ## Run the working implementation
 
@@ -45,9 +45,10 @@ make down
 - Confirmed-order Fulfillment requests, one shipment per warehouse, versioned operator commands and replay-safe physical handoff.
 - Actor/correlation/causation/origin-request metadata persisted across asynchronous work, with explicit legacy provenance.
 - Tenant-scoped local pause/resume/retry controls, live-lease protection and immutable transactional control audit.
+- Optional Kafka profile for events and workflow requests, with durable staging, manual offsets, ordered owner receipts, poison-stream isolation and audited retry.
 - Independent Go lab showing a lost-update schedule, connected to the real database contention tests.
 
-Inventory state is authoritative in PostgreSQL tables; Ordering state is derived from its immutable event stream. A placed order currently records SKU/quantity intent. An order remains unpriced intent until checkout accepts a Catalog quote; captured payment and committed stock are required for confirmation. The local dispatcher uses PostgreSQL. Catalog price authority, checkout capture/compensation and a two-leg payment journal now run through published contracts; warehouse sourcing and a separate Fulfillment context now carry confirmed allocations through picking, packing, durable dispatch and delivery recording. Kafka/CDC, full telemetry and the remaining laboratories are tracked in the backlog.
+Inventory state is authoritative in PostgreSQL tables; Ordering state is derived from its immutable event stream. A placed order currently records SKU/quantity intent. An order remains unpriced intent until checkout accepts a Catalog quote; captured payment and committed stock are required for confirmation. The local dispatcher uses PostgreSQL. Catalog price authority, checkout capture/compensation and a two-leg payment journal now run through published contracts; warehouse sourcing and a separate Fulfillment context now carry confirmed allocations through picking, packing, durable dispatch and delivery recording. Kafka transport is now executable; CDC, replicated broker operation, full telemetry and the remaining laboratories are tracked in the backlog.
 
 ## Repository map
 
@@ -75,7 +76,7 @@ deploy/compose/                    Reproducible local services
 docs/                             Guide, decisions, status, and full-book plan
 ```
 
-Start with the [inventory API](docs/API.md), [Ordering API](docs/ORDERING_API.md), [commerce contracts](docs/COMMERCE_API.md), [event-sourcing walkthrough](docs/chapters/ch03/event-sourcing.md), [checkout walkthrough](docs/chapters/ch05/checkout-workflow.md), and [Fulfillment contracts](docs/FULFILLMENT_API.md), and [provenance/operator controls](docs/OPERATIONS.md). See [validation](docs/VALIDATION.md) for measured evidence and limitations. Machine-readable implementation progress is in [docs/progress.json](docs/progress.json).
+Start with the [inventory API](docs/API.md), [Ordering API](docs/ORDERING_API.md), [commerce contracts](docs/COMMERCE_API.md), [event-sourcing walkthrough](docs/chapters/ch03/event-sourcing.md), [checkout walkthrough](docs/chapters/ch05/checkout-workflow.md), and [Fulfillment contracts](docs/FULFILLMENT_API.md), and [provenance/operator controls](docs/OPERATIONS.md), and [Kafka transport](docs/MESSAGING.md). See [validation](docs/VALIDATION.md) for measured evidence and limitations. Machine-readable implementation progress is in [docs/progress.json](docs/progress.json).
 
 ## Full-book scope remains mandatory
 
@@ -92,6 +93,10 @@ make verify-checkout-recovery # provider outage and worker restart
 make verify-fulfillment # two warehouses, shipment commands and physical stock
 make verify-fulfillment-recovery # durable dispatch across API/worker restart
 make verify-operations # lineage and audited pause/restart/resume using the real CLI
+make up-kafka         # optional Kafka transport profile; stop the other profile first
+make verify-kafka     # broker outage, publisher kill, duplicate/conflict recovery
+make integration-kafka # real Kafka acknowledgments and consumer-group rebalance
+make down-kafka       # stops this profile and retains database/broker volumes
 ```
 
 The original plan is preserved under `docs/plan/`; [docs/STATUS.md](docs/STATUS.md) is the current implementation record. The EPUB and extracted book prose are intentionally not part of this repository.

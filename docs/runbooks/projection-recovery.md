@@ -1,6 +1,8 @@
 # Recovering the local inventory projection
 
-The dispatcher never skips a pending predecessor for the same tenant/SKU/warehouse. After five failed attempts it sets `quarantined=true` and records `last_error='projection_failed'`. Later events from that stream wait; other streams continue.
+In the default PostgreSQL profile, the dispatcher never skips a pending predecessor for the same tenant/SKU/warehouse. After five failed attempts it sets `quarantined=true` and records `last_error='projection_failed'`. Later events from that stream wait; other streams continue.
+
+In the Kafka profile, also inspect the [durable transport inbox](kafka-recovery.md): a source can be published while application receipt is still pending or quarantined. Its scoped retry preserves the retained envelope.
 
 Use the worker's structured logs and inspect the specific stream in the local database. Credentials are in `.env`; do not paste them into logs or issue reports. The current development adapter has no public administrative endpoint.
 

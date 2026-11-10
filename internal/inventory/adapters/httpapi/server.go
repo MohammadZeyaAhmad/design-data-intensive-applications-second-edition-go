@@ -68,12 +68,13 @@ func tenant(r *http.Request) string { return auth.Tenant(r.Context()) }
 
 func (s server) receive(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Quantity int64 `json:"quantity"`
+		Quantity    int64  `json:"quantity"`
+		WarehouseID string `json:"warehouse_id,omitempty"`
 	}
 	if !decode(w, r, &input) {
 		return
 	}
-	out, replayed, err := (receivestock.Handler{Store: s.Store}).Handle(r.Context(), tenant(r), r.Header.Get("Idempotency-Key"), receivestock.Command{SKU: r.PathValue("sku"), Quantity: input.Quantity})
+	out, replayed, err := (receivestock.Handler{Store: s.Store}).Handle(r.Context(), tenant(r), r.Header.Get("Idempotency-Key"), receivestock.Command{SKU: r.PathValue("sku"), Quantity: input.Quantity, WarehouseID: input.WarehouseID})
 	s.result(w, 200, out, replayed, err)
 }
 func (s server) reserve(w http.ResponseWriter, r *http.Request) {
@@ -111,7 +112,18 @@ func (s server) stock(w http.ResponseWriter, r *http.Request) {
 		problem(w, 400, "invalid_input")
 		return
 	}
-	out, err := s.Store.Stock(r.Context(), tenant(r), r.PathValue("sku"))
+	warehouse := r.URL.Query().Get("warehouse_id")
+	if !domain.ValidWarehouse(warehouse) {
+		problem(w, 400, "invalid_input")
+		return
+	}
+	var out domain.StockState
+	var err error
+	if warehouse == "" || warehouse == "default" {
+		out, err = s.Store.Stock(r.Context(), tenant(r), r.PathValue("sku"))
+	} else {
+		out, err = s.Store.StockAt(r.Context(), tenant(r), r.PathValue("sku"), warehouse)
+	}
 	if err != nil {
 		s.failure(w, err)
 		return
@@ -124,7 +136,12 @@ func (s server) projection(w http.ResponseWriter, r *http.Request) {
 		problem(w, 400, "invalid_input")
 		return
 	}
-	out, err := s.Store.Projection(r.Context(), tenant(r), r.PathValue("sku"))
+	warehouse := r.URL.Query().Get("warehouse_id")
+	if !domain.ValidWarehouse(warehouse) {
+		problem(w, 400, "invalid_input")
+		return
+	}
+	out, err := s.Store.ProjectionAt(r.Context(), tenant(r), r.PathValue("sku"), warehouse)
 	if err != nil {
 		s.failure(w, err)
 		return

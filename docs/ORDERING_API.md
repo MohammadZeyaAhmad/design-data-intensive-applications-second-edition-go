@@ -1,6 +1,6 @@
 # Event-sourced Ordering API
 
-Ordering begins with SKU/quantity intent. Checkout now accepts a server-owned Catalog quote, freezes it in an event, and confirms only after the workflow verifies captured payment and committed allocations. See [commerce contracts](COMMERCE_API.md). Shipping/Fulfillment remains subsequent work.
+Ordering begins with SKU/quantity intent. Checkout now accepts a server-owned Catalog quote, freezes it in an event, and confirms only after the workflow verifies captured payment and committed allocations. See [commerce contracts](COMMERCE_API.md). Confirmation atomically schedules the separate [Fulfillment context](FULFILLMENT_API.md). Shipment progress has its own status and version; the source order remains confirmed.
 
 Use the same tenant-bound development bearer keys as the inventory API. Every command requires `Idempotency-Key`, JSON content type, and a body of at most 64 KiB. Caller-provided tenant/ID fields are not accepted in command bodies. Current order UUIDs are returned by the placement response. Checkout adds `checkout_pending`, `confirmed`, and `checkout_failed` outcomes, plus accepted `pricing`, `checkout_id`, `payment_id` and failure-reason fields when applicable. Payment references stay in operational records, not event payloads.
 

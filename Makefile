@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 .NOTPARALLEL:
-.PHONY: configure doctor build up down test integration verify verify-live verify-lifecycle verify-orders verify-recovery demo demo-orders demo-checkout verify-checkout verify-checkout-recovery coverage-check lab fmt
+.PHONY: configure doctor build up down test integration verify verify-live verify-lifecycle verify-orders verify-recovery demo demo-orders demo-checkout verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery coverage-check lab fmt
 COMPOSE = docker compose --env-file .env -f deploy/compose/compose.yaml -p ddia-go
 
 configure:
@@ -29,7 +29,7 @@ verify-orders:
 	go run ./cmd/guide verify-orders
 verify-recovery:
 	go run ./cmd/guide verify-recovery
-verify: test integration coverage-check lab verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-recovery
+verify: test integration coverage-check lab verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-recovery
 demo:
 	go run ./cmd/guide demo
 demo-orders:
@@ -46,3 +46,8 @@ lab:
 	cd labs && go run ./cmd/lab lost-update
 fmt:
 	gofmt -w cmd internal migrations tests labs
+
+verify-fulfillment:
+	go run ./cmd/guide verify-fulfillment
+verify-fulfillment-recovery:
+	go run ./cmd/guide verify-fulfillment-recovery

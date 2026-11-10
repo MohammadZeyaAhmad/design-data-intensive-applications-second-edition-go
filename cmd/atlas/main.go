@@ -17,6 +17,10 @@ import (
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/checkout/features/advance"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/checkout/features/start"
 	checkrun "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/checkout/runtime"
+	fulfillhttp "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/fulfillment/adapters/httpapi"
+	fulfilldb "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/fulfillment/adapters/postgres"
+	fulfilldispatch "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/fulfillment/features/dispatch"
+	fulfillrun "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/fulfillment/runtime"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/adapters/httpapi"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/adapters/postgres"
 	ordershttp "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/ordering/adapters/httpapi"
@@ -113,8 +117,10 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	orderStore := &orderspostgres.Store{Pool: pool}
 	orderCheckout := orderspostgres.Checkout{Store: orderStore}
 	checkoutWorker := checkrun.Worker{Store: checkoutStore, Orders: orderStore, Handler: advance.Handler{Inventory: postgres.Workflow{Store: store}, Payments: paymentStore, Orders: orderCheckout}}
+	fulfillmentStore := &fulfilldb.Store{Pool: pool}
+	fulfillmentWorker := fulfillrun.Worker{Store: fulfillmentStore, Orders: orderStore, Handler: fulfilldispatch.Handler{Inventory: postgres.Workflow{Store: store}}}
 	if command == "worker" {
-		logger.Info("Atlas inventory and ordering workers started")
+		logger.Info("Atlas inventory, ordering, checkout and fulfillment workers started")
 		group, workerContext := errgroup.WithContext(ctx)
 		group.Go(func() error {
 			return store.Run(workerContext, func(err error) { logger.Error("inventory worker attempt failed", "error", err) })
@@ -124,6 +130,9 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		})
 		group.Go(func() error {
 			return checkoutWorker.Run(workerContext, func(err error) { logger.Error("checkout step retry", "error", err) })
+		})
+		group.Go(func() error {
+			return fulfillmentWorker.Run(workerContext, func(err error) { logger.Error("fulfillment retry", "error", err) })
 		})
 		return group.Wait()
 	}
@@ -145,6 +154,9 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	mux.Handle("POST /v1/orders/{id}/checkout", checkoutHTTP)
 	mux.Handle("/v1/checkouts/", checkoutHTTP)
 	mux.Handle("/v1/catalog/", cathttp.New(catalogStore, keys))
+	fulfillmentHTTP := fulfillhttp.New(fulfillmentStore, keys)
+	mux.Handle("/v1/shipments/", fulfillmentHTTP)
+	mux.Handle("GET /v1/orders/{id}/fulfillment", fulfillmentHTTP)
 	mux.Handle("/v1/payments/", payhttp.New(paymentStore, pool, keys))
 	return serveHTTP(ctx, logger, address, mux)
 }

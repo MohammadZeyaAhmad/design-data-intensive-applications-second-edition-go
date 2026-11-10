@@ -73,7 +73,8 @@ func (s *Store) Execute(ctx context.Context, r ports.Request, fn func(context.Co
 
 func scanStock(row pgx.Row) (domain.StockState, error) {
 	var s domain.StockState
-	err := row.Scan(&s.TenantID, &s.SKU, &s.OnHand, &s.Reserved, &s.Allocated, &s.Version)
+	err := row.Scan(&s.TenantID, &s.SKU, &s.OnHand, &s.Reserved, &s.Allocated, &s.Version, &s.WarehouseID)
+	s.WarehouseID = publicWarehouse(s.WarehouseID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s, domain.ErrNotFound
 	}
@@ -86,16 +87,35 @@ func scanStock(row pgx.Row) (domain.StockState, error) {
 	return s, nil
 }
 
+func dbWarehouse(id string) string {
+	if id == "" {
+		return "default"
+	}
+	return id
+}
+func publicWarehouse(id string) string {
+	if id == "default" {
+		return ""
+	}
+	return id
+}
 func (s *Store) Stock(ctx context.Context, tenant, sku string) (domain.StockState, error) {
-	return scanStock(s.Pool.QueryRow(ctx, `SELECT tenant_id,sku,on_hand,reserved,allocated,version FROM inventory.stock WHERE tenant_id=$1 AND sku=$2`, tenant, sku))
+	return s.StockAt(ctx, tenant, sku, "")
+}
+func (s *Store) StockAt(ctx context.Context, tenant, sku, warehouse string) (domain.StockState, error) {
+	return scanStock(s.Pool.QueryRow(ctx, `SELECT tenant_id,sku,on_hand,reserved,allocated,version,warehouse_id FROM inventory.stock WHERE tenant_id=$1 AND sku=$2 AND warehouse_id=$3`, tenant, sku, dbWarehouse(warehouse)))
 }
 func (s *Store) Projection(ctx context.Context, tenant, sku string) (domain.StockState, error) {
-	return scanStock(s.Pool.QueryRow(ctx, `SELECT tenant_id,sku,on_hand,reserved,allocated,version FROM inventory.stock_views WHERE tenant_id=$1 AND sku=$2`, tenant, sku))
+	return s.ProjectionAt(ctx, tenant, sku, "")
+}
+func (s *Store) ProjectionAt(ctx context.Context, tenant, sku, warehouse string) (domain.StockState, error) {
+	return scanStock(s.Pool.QueryRow(ctx, `SELECT tenant_id,sku,on_hand,reserved,allocated,version,warehouse_id FROM inventory.stock_views WHERE tenant_id=$1 AND sku=$2 AND warehouse_id=$3`, tenant, sku, dbWarehouse(warehouse)))
 }
 
 func scanReservation(row pgx.Row) (domain.ReservationState, error) {
 	var r domain.ReservationState
-	err := row.Scan(&r.ID, &r.TenantID, &r.SKU, &r.Quantity, &r.Status, &r.Version, &r.ExpiresAt)
+	err := row.Scan(&r.ID, &r.TenantID, &r.SKU, &r.Quantity, &r.Status, &r.Version, &r.ExpiresAt, &r.WarehouseID)
+	r.WarehouseID = publicWarehouse(r.WarehouseID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return r, domain.ErrNotFound
 	}
@@ -108,7 +128,7 @@ func scanReservation(row pgx.Row) (domain.ReservationState, error) {
 	return r, nil
 }
 func (s *Store) Reservation(ctx context.Context, tenant, id string) (domain.ReservationState, error) {
-	return scanReservation(s.Pool.QueryRow(ctx, `SELECT id::text,tenant_id,sku,quantity,status,version,expires_at FROM inventory.reservations WHERE tenant_id=$1 AND id=$2::uuid`, tenant, id))
+	return scanReservation(s.Pool.QueryRow(ctx, `SELECT id::text,tenant_id,sku,quantity,status,version,expires_at,warehouse_id FROM inventory.reservations WHERE tenant_id=$1 AND id=$2::uuid`, tenant, id))
 }
 
 type transaction struct {
@@ -129,11 +149,17 @@ func (t *transaction) ManagedReservation(ctx context.Context, id string) (bool, 
 }
 
 func (t *transaction) EnsureStock(ctx context.Context, sku string) error {
-	_, err := t.tx.Exec(ctx, `INSERT INTO inventory.stock (tenant_id,sku) VALUES ($1,$2) ON CONFLICT DO NOTHING`, t.tenant, sku)
+	return t.EnsureStockAt(ctx, sku, "")
+}
+func (t *transaction) EnsureStockAt(ctx context.Context, sku, warehouse string) error {
+	_, err := t.tx.Exec(ctx, `INSERT INTO inventory.stock (tenant_id,sku,warehouse_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`, t.tenant, sku, dbWarehouse(warehouse))
 	return err
 }
 func (t *transaction) LockStock(ctx context.Context, sku string) (*domain.Stock, error) {
-	s, err := scanStock(t.tx.QueryRow(ctx, `SELECT tenant_id,sku,on_hand,reserved,allocated,version FROM inventory.stock WHERE tenant_id=$1 AND sku=$2 FOR UPDATE`, t.tenant, sku))
+	return t.LockStockAt(ctx, sku, "")
+}
+func (t *transaction) LockStockAt(ctx context.Context, sku, warehouse string) (*domain.Stock, error) {
+	s, err := scanStock(t.tx.QueryRow(ctx, `SELECT tenant_id,sku,on_hand,reserved,allocated,version,warehouse_id FROM inventory.stock WHERE tenant_id=$1 AND sku=$2 AND warehouse_id=$3 FOR UPDATE`, t.tenant, sku, dbWarehouse(warehouse)))
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +170,7 @@ func (t *transaction) SaveStock(ctx context.Context, aggregate *domain.Stock) er
 	if s.TenantID != t.tenant {
 		return domain.ErrCorruptState
 	}
-	tag, err := t.tx.Exec(ctx, `UPDATE inventory.stock SET on_hand=$3,reserved=$4,allocated=$5,version=$6 WHERE tenant_id=$1 AND sku=$2 AND version=$6-1`, t.tenant, s.SKU, s.OnHand, s.Reserved, s.Allocated, s.Version)
+	tag, err := t.tx.Exec(ctx, `UPDATE inventory.stock SET on_hand=$3,reserved=$4,allocated=$5,version=$6 WHERE tenant_id=$1 AND sku=$2 AND version=$6-1 AND warehouse_id=$7`, t.tenant, s.SKU, s.OnHand, s.Reserved, s.Allocated, s.Version, dbWarehouse(s.WarehouseID))
 	if err != nil {
 		return err
 	}
@@ -154,7 +180,7 @@ func (t *transaction) SaveStock(ctx context.Context, aggregate *domain.Stock) er
 	return nil
 }
 func (t *transaction) LockReservation(ctx context.Context, id string) (*domain.Reservation, error) {
-	r, err := scanReservation(t.tx.QueryRow(ctx, `SELECT id::text,tenant_id,sku,quantity,status,version,expires_at FROM inventory.reservations WHERE tenant_id=$1 AND id=$2::uuid FOR UPDATE`, t.tenant, id))
+	r, err := scanReservation(t.tx.QueryRow(ctx, `SELECT id::text,tenant_id,sku,quantity,status,version,expires_at,warehouse_id FROM inventory.reservations WHERE tenant_id=$1 AND id=$2::uuid FOR UPDATE`, t.tenant, id))
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +191,7 @@ func (t *transaction) InsertReservation(ctx context.Context, aggregate *domain.R
 	if r.TenantID != t.tenant {
 		return domain.ErrCorruptState
 	}
-	_, err := t.tx.Exec(ctx, `INSERT INTO inventory.reservations (tenant_id,id,sku,quantity,status,version,expires_at) VALUES ($1,$2::uuid,$3,$4,$5,$6,$7)`, t.tenant, r.ID, r.SKU, r.Quantity, r.Status, r.Version, r.ExpiresAt)
+	_, err := t.tx.Exec(ctx, `INSERT INTO inventory.reservations (tenant_id,id,sku,quantity,status,version,expires_at,warehouse_id) VALUES ($1,$2::uuid,$3,$4,$5,$6,$7,$8)`, t.tenant, r.ID, r.SKU, r.Quantity, r.Status, r.Version, r.ExpiresAt, dbWarehouse(r.WarehouseID))
 	return err
 }
 func (t *transaction) SaveReservation(ctx context.Context, aggregate *domain.Reservation) error {
@@ -190,6 +216,6 @@ func (t *transaction) AppendEvent(ctx context.Context, eventType string, out por
 	if err != nil {
 		return err
 	}
-	_, err = t.tx.Exec(ctx, `INSERT INTO inventory.outbox (tenant_id,sku,aggregate_version,event_type,payload) VALUES ($1,$2,$3,$4,$5)`, t.tenant, out.Stock.SKU, out.Stock.Version, eventType, b)
+	_, err = t.tx.Exec(ctx, `INSERT INTO inventory.outbox (tenant_id,sku,aggregate_version,event_type,payload,warehouse_id) VALUES ($1,$2,$3,$4,$5,$6)`, t.tenant, out.Stock.SKU, out.Stock.Version, eventType, b, dbWarehouse(out.Stock.WarehouseID))
 	return err
 }

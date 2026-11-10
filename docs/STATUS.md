@@ -10,16 +10,18 @@ The second increment adds database-clock reservation expiry, explicit allocation
 
 The third increment adds Catalog price versions/quotes, explicit published contracts, a durable checkout process manager, an authenticated HTTP provider simulator and a balanced immutable capture/refund journal. Resource-close markers fence delayed reserve/capture calls; source outcome facts fence stale confirmation/compensation. The full suite now has 30 real PostgreSQL integration tests plus provider-outage/worker-restart HTTP verification.
 
+The fourth increment adds warehouse-scoped stock and event ordering, pinned checkout sourcing, a separate Fulfillment context, durable confirmation dispatch, immutable shipment history, expected-version warehouse commands and idempotent physical stock handoff. The suite now has **42 real PostgreSQL integration tests**, plus real HTTP/API/worker-restart shipment scenarios.
+
 These pieces begin several large work packages; they do not complete those packages in full.
 
 | Plan package | Current status | Remaining scope |
 |---|---|---|
 | APP-01 | In progress: modules, local commands, source inventory, Compose, CI | Full guide/scenario manifests, deterministic harness, all profiles |
-| APP-02 | In progress: Inventory and Ordering boundaries; shared transport/auth; import checks | Fulfillment and warehouse contracts; full domain map and production authorization |
-| APP-03 | Lifecycle verified: receive/reserve/commit/release/expire/reverse; post-lock deadline check | Warehouse dimension and fulfillment integration still need the broader domain contracts |
+| APP-02 | In progress: Six private contexts and published warehouse/Fulfillment contracts; shared transport/auth and import checks | Full domain map, warehouse registry, production authorization and remaining context features |
+| APP-03 | In progress: warehouse receive/reserve/commit/release/expire/reverse/ship; post-lock deadlines and independent streams | Single-SKU splits, transfers and broader policies |
 | APP-04 | In progress: event append/replay, snapshots, upcasters, immutable source, expected version and request identity | Complete checkout lifecycle events, full actor/correlation envelope, archival lifecycle |
 | APP-05 | In progress: idempotent simulated capture/void/refund, unknown outcomes, immutable journal | Authorization separation, partial refunds, webhooks and real-provider adapter |
-| APP-07 | In progress: durable multi-line checkout, leased steps, compensation, cancellation and outcome fences | Fulfillment, generalized manual recovery, durable-execution alternative |
+| APP-07 | In progress: durable checkout, leased steps, compensation, cancellation, outcome fences and warehouse shipment handoff | Returns/post-confirmation changes, generalized manual recovery and durable-execution alternative |
 | APP-06 | In progress: PostgreSQL outbox/dispatcher/inbox and per-stream quarantine | Kafka publication, broker crash boundaries, general replay/repair tooling |
 | APP-08 | In progress: input contracts, tenant isolation, request identity | OIDC, authorization roles, pagination and full API contracts |
 | C03-06 | In progress: authoritative event-sourced commands and asynchronous order/inventory views | Full dashboard/fulfillment views and all-stream generation cutover |
@@ -35,12 +37,11 @@ These pieces begin several large work packages; they do not complete those packa
 
 ## Next implementation sequence
 
-1. Add warehouse-aware inventory and the Fulfillment context, preserving checkout compensation ownership.
-2. Complete actor/correlation envelopes and generalized operational recovery controls.
-3. Add Kafka as a transport adapter and explicit broker publish/acknowledgment failure scenarios.
-4. Implement the Temporal workflow alternative and compare it with the current persisted process manager.
-5. Continue storage, replication, sharding, analytics and governance work against the full source inventory.
+1. Complete actor/correlation envelopes and generalized operational recovery controls.
+2. Add Kafka as a transport adapter and explicit broker publish/acknowledgment failure scenarios.
+3. Implement the Temporal workflow alternative and compare it with the current persisted process manager.
+4. Continue storage, replication, sharding, analytics and governance work against the full source inventory.
 
-[Machine-readable progress](progress.json) retains all 88 package IDs. The [inventory lifecycle](../scenarios/inventory-lifecycle.json) and [Ordering](../scenarios/ordering-events.json) scenario manifests, together with [checkout/payments](../scenarios/checkout-payments.json), record verified behaviors and evidence paths; they do not declare the much larger associated packages complete. `make coverage-check` validates their package IDs and file references in addition to the book inventory.
+[Machine-readable progress](progress.json) retains all 88 package IDs. The [inventory lifecycle](../scenarios/inventory-lifecycle.json) and [Ordering](../scenarios/ordering-events.json) scenario manifests, together with [checkout/payments](../scenarios/checkout-payments.json) and [warehouse/Fulfillment](../scenarios/warehouse-fulfillment.json), record verified behaviors and evidence paths; they do not declare the much larger associated packages complete. `make coverage-check` validates their package IDs and file references in addition to the book inventory.
 
-Real payment-network integration, Fulfillment/shipping, Kubernetes deployment, backup/restore workflows, Raft, CDC, and complete storage engines remain unfinished. Current capabilities are defined by the source and recorded validation, not by the eventual project scope.
+Real payment/carrier-network integration, returns, single-SKU warehouse splits, Kubernetes deployment, backup/restore workflows, Raft, CDC, and complete storage engines remain unfinished. Current capabilities are defined by the source and recorded validation, not by the eventual project scope.

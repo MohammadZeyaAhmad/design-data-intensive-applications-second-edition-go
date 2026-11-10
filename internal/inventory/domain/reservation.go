@@ -15,30 +15,36 @@ const (
 	ReservationReleased  = "released"
 	ReservationExpired   = "expired"
 	ReservationReversed  = "reversed"
+	ReservationShipped   = "shipped"
 )
 
 type ReservationState struct {
-	ID        string    `json:"id"`
-	TenantID  string    `json:"tenant_id"`
-	SKU       string    `json:"sku"`
-	Quantity  int64     `json:"quantity"`
-	Status    string    `json:"status"`
-	Version   int64     `json:"version"`
-	ExpiresAt time.Time `json:"expires_at,omitzero"`
+	WarehouseID string    `json:"warehouse_id,omitempty"`
+	ID          string    `json:"id"`
+	TenantID    string    `json:"tenant_id"`
+	SKU         string    `json:"sku"`
+	Quantity    int64     `json:"quantity"`
+	Status      string    `json:"status"`
+	Version     int64     `json:"version"`
+	ExpiresAt   time.Time `json:"expires_at,omitzero"`
 }
 
 type Reservation struct{ state ReservationState }
 
 func NewReservation(id, tenant, sku string, quantity int64, expiresAt time.Time) (*Reservation, error) {
-	return RestoreReservation(ReservationState{ID: id, TenantID: tenant, SKU: sku, Quantity: quantity, Status: ReservationActive, Version: 1, ExpiresAt: expiresAt.UTC()})
+	return NewReservationAt(id, tenant, sku, "", quantity, expiresAt)
+}
+
+func NewReservationAt(id, tenant, sku, warehouse string, quantity int64, expiresAt time.Time) (*Reservation, error) {
+	return RestoreReservation(ReservationState{ID: id, TenantID: tenant, SKU: sku, WarehouseID: warehouse, Quantity: quantity, Status: ReservationActive, Version: 1, ExpiresAt: expiresAt.UTC()})
 }
 
 func RestoreReservation(s ReservationState) (*Reservation, error) {
-	if s.ID == "" || !ValidTenant(s.TenantID) || !ValidSKU(s.SKU) || !ValidQuantity(s.Quantity) || s.Version < 1 || s.ExpiresAt.IsZero() {
+	if s.ID == "" || !ValidWarehouse(s.WarehouseID) || !ValidTenant(s.TenantID) || !ValidSKU(s.SKU) || !ValidQuantity(s.Quantity) || s.Version < 1 || s.ExpiresAt.IsZero() {
 		return nil, ErrCorruptState
 	}
 	switch s.Status {
-	case ReservationActive, ReservationCommitted, ReservationReleased, ReservationExpired, ReservationReversed:
+	case ReservationActive, ReservationCommitted, ReservationReleased, ReservationExpired, ReservationReversed, ReservationShipped:
 	default:
 		return nil, ErrCorruptState
 	}
@@ -50,7 +56,7 @@ func (r *Reservation) Snapshot() ReservationState { return r.state }
 // Transition evaluates a caller-supplied authoritative clock after locking.
 // Repeated terminal actions have no new effect. Reversal is explicit compensation.
 func (r *Reservation) Transition(target string, now time.Time) (bool, error) {
-	if now.IsZero() || (target != ReservationCommitted && target != ReservationReleased && target != ReservationExpired && target != ReservationReversed) {
+	if now.IsZero() || (target != ReservationCommitted && target != ReservationReleased && target != ReservationExpired && target != ReservationReversed && target != ReservationShipped) {
 		return false, ErrInvalidInput
 	}
 	if r.state.Status == target {
@@ -59,7 +65,7 @@ func (r *Reservation) Transition(target string, now time.Time) (bool, error) {
 	if r.state.Version == math.MaxInt64 {
 		return false, ErrCorruptState
 	}
-	if target == ReservationReversed {
+	if target == ReservationReversed || target == ReservationShipped {
 		if r.state.Status != ReservationCommitted {
 			return false, ErrInvalidTransition
 		}

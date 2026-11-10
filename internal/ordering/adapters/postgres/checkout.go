@@ -83,7 +83,7 @@ func (c Checkout) Confirm(ctx context.Context, tenant, order string, proof api.P
 		}
 		p := domain.PaymentProof{CheckoutID: proof.CheckoutID, PaymentID: proof.PaymentID, Currency: proof.Currency, AmountMinor: proof.AmountMinor}
 		for _, a := range proof.Allocations {
-			p.Allocations = append(p.Allocations, domain.Allocation{ID: a.ID, SKU: a.SKU, Quantity: a.Quantity})
+			p.Allocations = append(p.Allocations, domain.Allocation{ID: a.ID, SKU: a.SKU, WarehouseID: a.WarehouseID, Quantity: a.Quantity})
 		}
 		r, err := ports.NewRequest(tenant, "confirm-checkout", "confirm-"+proof.CheckoutID, p)
 		if err != nil {

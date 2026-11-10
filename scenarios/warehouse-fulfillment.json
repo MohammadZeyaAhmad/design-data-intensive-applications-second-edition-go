@@ -1,0 +1,8 @@
+{
+  "id": "warehouse-fulfillment",
+  "status": "verified",
+  "work_packages": ["APP-02", "APP-03", "APP-06", "APP-07", "C05-03", "C09-04", "C13-05"],
+  "commands": ["make verify-fulfillment", "make verify-fulfillment-recovery", "make integration"],
+  "assertions": ["warehouse reservation limits and streams are independent", "checkout sourcing cannot oversell across locations", "single SKU lines pin one warehouse", "confirmation and fulfillment request roll back together", "redelivery creates one shipment per warehouse", "concurrent operators require the current version", "unknown handoff outcomes do not duplicate physical deductions", "expired and superseded tokens cannot checkpoint", "shipping and compensation have one resource outcome", "shipment facts and allocation identity are immutable", "API and worker restart preserve dispatch identity"],
+  "evidence": ["tests/integration/fulfillment_test.go", "internal/fulfillment/domain/shipment_test.go", "cmd/guide/fulfillment.go"]
+}

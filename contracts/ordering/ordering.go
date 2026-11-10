@@ -26,8 +26,9 @@ type View struct {
 	FailureReason string        `json:"failure_reason,omitempty"`
 }
 type Allocation struct {
-	ID, SKU  string
-	Quantity int64
+	ID, SKU     string
+	WarehouseID string
+	Quantity    int64
 }
 type Proof struct {
 	CheckoutID, PaymentID, Currency string

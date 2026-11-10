@@ -8,16 +8,18 @@ Authenticated requests require `Authorization: Bearer <tenant-key>`. Identity co
 |---|---|---|
 | `GET /healthz` | None | Process health, 200 |
 | `GET /readyz` | None | Database migration compatibility, 200 or 503 |
-| `POST /v1/stock/{sku}/receipts` | JSON `{"quantity":10}` and `Idempotency-Key` | 200, stock snapshot |
-| `GET /v1/stock/{sku}` | Auth | 200, authoritative stock; 404 if absent in this tenant |
-| `GET /v1/stock/{sku}/projection` | Auth | 200, eventual stock view; 404 until first projected event |
-| `POST /v1/reservations` | JSON `{"sku":"BOOK","quantity":2,"ttl_seconds":900}` and `Idempotency-Key` | 201, stock and reservation snapshots with `expires_at` |
+| `POST /v1/stock/{sku}/receipts` | JSON `{"quantity":10,"warehouse_id":"east"}` (warehouse optional) and `Idempotency-Key` | 200, stock snapshot |
+| `GET /v1/stock/{sku}` | Auth | 200, authoritative stock at optional `?warehouse_id=east`; 404 if absent in this tenant/location |
+| `GET /v1/stock/{sku}/projection` | Auth | 200, eventual stock view at optional `?warehouse_id=east`; 404 until first projected event |
+| `POST /v1/reservations` | JSON `{"sku":"BOOK","quantity":2,"ttl_seconds":900,"warehouse_id":"east"}` (warehouse optional) and `Idempotency-Key` | 201, stock and reservation snapshots with `expires_at` |
 | `GET /v1/reservations/{id}` | Auth | 200, reservation; 404 if absent in this tenant |
 | `POST /v1/reservations/{id}/commit` | No body; `Idempotency-Key` | 200, reservation becomes committed and stock reserved → allocated |
 | `POST /v1/reservations/{id}/release` | No body; `Idempotency-Key` | 200, active reservation releases stock |
 | `POST /v1/reservations/{id}/reverse` | No body; `Idempotency-Key` | 200, committed allocation is compensated once |
 
 Use `Content-Type: application/json` for JSON commands. The API rejects unknown fields, trailing JSON documents, overflowing numbers, bodies over 64 KiB, invalid SKUs, and nonpositive/oversized quantities. An individual command quantity is at most 1,000,000,000. Reservation IDs are UUIDs. SKUs are 1–64 ASCII letters/digits/dot/underscore/hyphen and start with a letter or digit.
+
+Stock keys, versions and projection streams are now tenant/SKU/warehouse scoped. Missing/empty `warehouse_id` or `default` selects the legacy default location; reads without the field do not sum other locations. Named locations appear in snapshots; default snapshots retain the old shape. [Fulfillment contracts](FULFILLMENT_API.md) describe sourcing and shipping.
 
 Command responses have this shape:
 
@@ -57,4 +59,4 @@ Successful retries return the original saved snapshot: retrying a reservation af
 
 Errors use `{"error":{"code":"..."}}`: 400 invalid input/JSON, 401 unauthorized, 404 not found, 409 insufficient stock/idempotency conflict/invalid transition, 415 unsupported media type, 504 deadline, and 500 internal error. Internal database details are logged server-side rather than returned to clients.
 
-Workflow-owned reservations are managed through the published checkout contract. Ordinary commitment/release/reversal endpoints reject those IDs; cancel the checkout to request compensation. Permanent step-close markers prevent a delayed workflow reserve from recreating an already compensated hold.
+Workflow-owned reservations are managed through the published checkout contract. Ordinary commitment/release/reversal endpoints reject those IDs; cancel a pending checkout to request compensation. After source confirmation, Fulfillment owns physical handoff; checkout cancellation cannot undo it. Permanent step-close markers prevent a delayed workflow reserve from recreating an already compensated hold.

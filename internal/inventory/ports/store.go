@@ -44,7 +44,9 @@ type Transaction interface {
 	Now(context.Context) (time.Time, error)
 	ManagedReservation(context.Context, string) (bool, error)
 	EnsureStock(context.Context, string) error
+	EnsureStockAt(context.Context, string, string) error
 	LockStock(context.Context, string) (*domain.Stock, error)
+	LockStockAt(context.Context, string, string) (*domain.Stock, error)
 	SaveStock(context.Context, *domain.Stock) error
 	LockReservation(context.Context, string) (*domain.Reservation, error)
 	InsertReservation(context.Context, *domain.Reservation) error
@@ -55,6 +57,8 @@ type Transaction interface {
 type Store interface {
 	Execute(context.Context, Request, func(context.Context, Transaction) (Outcome, error)) (Outcome, bool, error)
 	Stock(context.Context, string, string) (domain.StockState, error)
+	StockAt(context.Context, string, string, string) (domain.StockState, error)
 	Projection(context.Context, string, string) (domain.StockState, error)
+	ProjectionAt(context.Context, string, string, string) (domain.StockState, error)
 	Reservation(context.Context, string, string) (domain.ReservationState, error)
 }

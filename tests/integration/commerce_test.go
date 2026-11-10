@@ -72,6 +72,9 @@ func commerceTenant(t *testing.T) string {
 		if _, err := pool.Exec(context.Background(), `DELETE FROM checkout.jobs WHERE tenant_id=$1`, id); err != nil {
 			t.Error(err)
 		}
+		if _, err := pool.Exec(context.Background(), `UPDATE ordering.fulfillment_outbox SET dispatched_at=now() WHERE tenant_id=$1`, id); err != nil {
+			t.Error(err)
+		}
 		if _, err := pool.Exec(context.Background(), `UPDATE ordering.checkout_outbox SET dispatched_at=now() WHERE tenant_id=$1`, id); err != nil {
 			t.Error(err)
 		}

@@ -7,24 +7,28 @@ import (
 )
 
 type Command struct {
-	SKU      string `json:"sku"`
-	Quantity int64  `json:"quantity"`
+	WarehouseID string `json:"warehouse_id,omitempty"`
+	SKU         string `json:"sku"`
+	Quantity    int64  `json:"quantity"`
 }
 type Handler struct{ Store ports.Store }
 
 func (h Handler) Handle(ctx context.Context, tenant, key string, c Command) (ports.Outcome, bool, error) {
-	if !domain.ValidSKU(c.SKU) || !domain.ValidQuantity(c.Quantity) {
+	if !domain.ValidWarehouse(c.WarehouseID) || !domain.ValidSKU(c.SKU) || !domain.ValidQuantity(c.Quantity) {
 		return ports.Outcome{}, false, domain.ErrInvalidInput
+	}
+	if c.WarehouseID == "default" {
+		c.WarehouseID = ""
 	}
 	r, err := ports.NewRequest(tenant, "receive-stock", key, c)
 	if err != nil {
 		return ports.Outcome{}, false, err
 	}
 	return h.Store.Execute(ctx, r, func(ctx context.Context, tx ports.Transaction) (ports.Outcome, error) {
-		if err := tx.EnsureStock(ctx, c.SKU); err != nil {
+		if err := tx.EnsureStockAt(ctx, c.SKU, c.WarehouseID); err != nil {
 			return ports.Outcome{}, err
 		}
-		s, err := tx.LockStock(ctx, c.SKU)
+		s, err := tx.LockStockAt(ctx, c.SKU, c.WarehouseID)
 		if err != nil {
 			return ports.Outcome{}, err
 		}

@@ -95,6 +95,11 @@ func (s *Store) ExecuteAt(ctx context.Context, r ports.Request, id string, expec
 		if err = order.Apply(event); err != nil {
 			return domain.State{}, false, err
 		}
+		if event.Type == domain.OrderConfirmed {
+			if err = enqueueFulfillment(ctx, tx, r.Tenant, id, event); err != nil {
+				return domain.State{}, false, err
+			}
+		}
 		var eventID string
 		err = tx.QueryRow(ctx, `INSERT INTO ordering.events (tenant_id,order_id,version,command_id,event_type,schema_version,payload) VALUES ($1,$2::uuid,$3,$4::uuid,$5,$6,$7) RETURNING event_id::text`, r.Tenant, id, event.Version, commandID, event.Type, event.SchemaVersion, []byte(event.Data)).Scan(&eventID)
 		if err != nil {

@@ -41,7 +41,7 @@ jobs:
       - name: Start disposable API and worker stack
         run: make up
       - name: Live HTTP contention and restart recovery
-        run: make verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-recovery
+        run: make verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-recovery
       - name: Stop disposable stack
         if: always()
         run: |

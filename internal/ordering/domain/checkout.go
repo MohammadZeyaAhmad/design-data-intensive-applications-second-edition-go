@@ -30,9 +30,10 @@ type Pricing struct {
 	ExpiresAt  time.Time   `json:"expires_at"`
 }
 type Allocation struct {
-	ID       string `json:"id"`
-	SKU      string `json:"sku"`
-	Quantity int64  `json:"quantity"`
+	WarehouseID string `json:"warehouse_id,omitempty"`
+	ID          string `json:"id"`
+	SKU         string `json:"sku"`
+	Quantity    int64  `json:"quantity"`
 }
 type PaymentProof struct {
 	CheckoutID  string       `json:"checkout_id"`
@@ -89,7 +90,7 @@ func validProof(state State, p PaymentProof) bool {
 	}
 	seen := map[string]bool{}
 	for _, a := range p.Allocations {
-		if !ValidID(a.ID) || seen[a.ID] || want[a.SKU] != a.Quantity {
+		if (a.WarehouseID != "" && !tenantPattern.MatchString(a.WarehouseID)) || !ValidID(a.ID) || seen[a.ID] || want[a.SKU] != a.Quantity {
 			return false
 		}
 		seen[a.ID] = true

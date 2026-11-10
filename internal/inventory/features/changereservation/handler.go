@@ -40,7 +40,7 @@ func Apply(ctx context.Context, tx ports.Transaction, c Command) (ports.Outcome,
 		return ports.Outcome{}, err
 	}
 	state := reservation.Snapshot()
-	s, err := tx.LockStock(ctx, state.SKU)
+	s, err := tx.LockStockAt(ctx, state.SKU, state.WarehouseID)
 	if err != nil {
 		return ports.Outcome{}, err
 	}

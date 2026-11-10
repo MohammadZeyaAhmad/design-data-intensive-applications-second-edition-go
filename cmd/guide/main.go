@@ -33,7 +33,7 @@ func main() {
 }
 func run() error {
 	if len(os.Args) != 2 {
-		return errors.New("usage: guide configure|doctor|wait|demo|demo-orders|demo-checkout|verify-checkout|verify-checkout-recovery|verify-live|verify-lifecycle|verify-orders|verify-recovery|coverage")
+		return errors.New("usage: guide configure|doctor|wait|demo|demo-orders|demo-checkout|verify-checkout|verify-checkout-recovery|verify-fulfillment|verify-fulfillment-recovery|verify-live|verify-lifecycle|verify-orders|verify-recovery|coverage")
 	}
 	command := os.Args[1]
 	if command == "configure" {
@@ -71,6 +71,10 @@ func run() error {
 		return demoCheckout(c)
 	case "verify-checkout-recovery":
 		return verifyCheckoutRecovery(c)
+	case "verify-fulfillment":
+		return verifyFulfillment(c, false)
+	case "verify-fulfillment-recovery":
+		return verifyFulfillment(c, true)
 	case "verify-checkout":
 		return verifyCheckout(c)
 	case "demo-orders":

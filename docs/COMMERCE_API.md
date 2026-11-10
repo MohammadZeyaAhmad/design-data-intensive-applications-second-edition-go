@@ -40,7 +40,7 @@ The workflow record is created asynchronously, so its first read may return 404 
 
 A cancellation request can lose a race with confirmation. The source aggregate decides which transition wins; a confirmed order is preserved rather than refunded by a stale compensator. On failure, the order may already show `checkout_failed` while the workflow remains `compensating`. Financial/resource cleanup is complete only when the workflow reaches its final state.
 
-The stock pool remains tenant/SKU based. Warehouse selection, shipping, post-dispatch changes and the separate Fulfillment context are subsequent work. Workflow-owned reservation IDs cannot be committed/released/reversed through ordinary reservation endpoints; the published workflow contract owns their lifecycle.
+Inventory now selects one warehouse for each whole SKU line and pins it in the allocation. Confirmation atomically schedules Fulfillment, which creates one shipment per warehouse. See [warehouse and shipment contracts](FULFILLMENT_API.md); post-confirmation changes and real carriers remain separate work. Workflow-owned reservation IDs cannot be committed/released/reversed through ordinary reservation endpoints; the published workflow contract owns their lifecycle.
 
 ## Simulated payment methods and journal
 

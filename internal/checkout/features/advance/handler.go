@@ -97,7 +97,7 @@ func (h Handler) Handle(ctx context.Context, j ports.Job) (domain.State, error) 
 			if hold.Status != "committed" {
 				return fail("reservation_expired"), nil
 			}
-			proof.Allocations = append(proof.Allocations, orders.Allocation{ID: hold.ID, SKU: hold.SKU, Quantity: hold.Quantity})
+			proof.Allocations = append(proof.Allocations, orders.Allocation{ID: hold.ID, SKU: hold.SKU, WarehouseID: hold.WarehouseID, Quantity: hold.Quantity})
 		}
 		out, err := h.Orders.Confirm(ctx, r.TenantID, r.OrderID, proof)
 		if err != nil {

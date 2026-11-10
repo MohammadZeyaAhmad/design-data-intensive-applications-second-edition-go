@@ -16,7 +16,7 @@ type Workflow struct{ Store *Store }
 var _ api.Service = Workflow{}
 
 func holdView(r domain.ReservationState) api.Hold {
-	return api.Hold{ID: r.ID, SKU: r.SKU, Quantity: r.Quantity, Status: r.Status, ExpiresAt: r.ExpiresAt}
+	return api.Hold{ID: r.ID, SKU: r.SKU, WarehouseID: r.WarehouseID, Quantity: r.Quantity, Status: r.Status, ExpiresAt: r.ExpiresAt}
 }
 func workflowError(err error) error {
 	if errors.Is(err, domain.ErrInsufficientStock) || errors.Is(err, domain.ErrNotFound) || errors.Is(err, domain.ErrReservationExpired) || errors.Is(err, domain.ErrInvalidTransition) {
@@ -71,7 +71,7 @@ func (w Workflow) Reserve(ctx context.Context, tenant, id string, line api.Line,
 	existing, err := t.LockReservation(ctx, id)
 	if err == nil {
 		r := existing.Snapshot()
-		if r.Status == domain.ReservationReleased || r.Status == domain.ReservationExpired || r.Status == domain.ReservationReversed {
+		if r.Status == domain.ReservationReleased || r.Status == domain.ReservationExpired || r.Status == domain.ReservationReversed || r.Status == domain.ReservationShipped {
 			return api.Hold{}, api.ErrClosed
 		}
 		now, clockErr := t.Now(ctx)
@@ -86,7 +86,13 @@ func (w Workflow) Reserve(ctx context.Context, tenant, id string, line api.Line,
 	if !errors.Is(err, domain.ErrNotFound) {
 		return api.Hold{}, err
 	}
-	s, err := t.LockStock(ctx, line.SKU)
+	// A line is sourced wholly from one location. Row locking rechecks
+	// availability after waits; separate warehouses have independent streams.
+	stockState, err := scanStock(tx.QueryRow(ctx, `SELECT tenant_id,sku,on_hand,reserved,allocated,version,warehouse_id FROM inventory.stock WHERE tenant_id=$1 AND sku=$2 AND on_hand-reserved-allocated >= $3 ORDER BY (warehouse_id='default') DESC,warehouse_id LIMIT 1 FOR UPDATE`, tenant, line.SKU, line.Quantity))
+	var s *domain.Stock
+	if err == nil {
+		s, err = domain.RestoreStock(stockState)
+	}
 	if err != nil {
 		return api.Hold{}, workflowError(err)
 	}
@@ -97,7 +103,7 @@ func (w Workflow) Reserve(ctx context.Context, tenant, id string, line api.Line,
 	if err != nil {
 		return api.Hold{}, err
 	}
-	r, err := domain.NewReservation(id, tenant, line.SKU, line.Quantity, now.Add(time.Duration(ttl)*time.Second))
+	r, err := domain.NewReservationAt(id, tenant, line.SKU, s.Snapshot().WarehouseID, line.Quantity, now.Add(time.Duration(ttl)*time.Second))
 	if err != nil {
 		return api.Hold{}, err
 	}
@@ -136,7 +142,7 @@ func (w Workflow) Commit(ctx context.Context, tenant, id string) (api.Hold, erro
 		return api.Hold{}, workflowError(err)
 	}
 	state := r.Snapshot()
-	s, err := t.LockStock(ctx, state.SKU)
+	s, err := t.LockStockAt(ctx, state.SKU, state.WarehouseID)
 	if err != nil {
 		return api.Hold{}, err
 	}
@@ -187,10 +193,13 @@ func (w Workflow) Close(ctx context.Context, tenant, id string, line api.Line) e
 		return err
 	}
 	state := r.Snapshot()
+	if state.Status == domain.ReservationShipped {
+		return api.ErrClosed
+	}
 	if state.Status != domain.ReservationActive && state.Status != domain.ReservationCommitted {
 		return tx.Commit(ctx)
 	}
-	s, err := t.LockStock(ctx, state.SKU)
+	s, err := t.LockStockAt(ctx, state.SKU, state.WarehouseID)
 	if err != nil {
 		return err
 	}

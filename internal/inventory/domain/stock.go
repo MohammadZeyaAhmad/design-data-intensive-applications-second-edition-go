@@ -21,18 +21,22 @@ const MaxCommandQuantity int64 = 1_000_000_000
 var skuPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 var tenantPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
 
-func ValidSKU(s string) bool     { return skuPattern.MatchString(s) }
-func ValidTenant(s string) bool  { return tenantPattern.MatchString(s) }
-func ValidQuantity(q int64) bool { return q > 0 && q <= MaxCommandQuantity }
+func ValidSKU(s string) bool    { return skuPattern.MatchString(s) }
+func ValidTenant(s string) bool { return tenantPattern.MatchString(s) }
+
+// Empty means the legacy default warehouse. Named locations use tenant-style slugs.
+func ValidWarehouse(s string) bool { return s == "" || tenantPattern.MatchString(s) }
+func ValidQuantity(q int64) bool   { return q > 0 && q <= MaxCommandQuantity }
 
 // StockState is a persistence/query snapshot, not a mutable aggregate.
 type StockState struct {
-	TenantID  string `json:"tenant_id"`
-	SKU       string `json:"sku"`
-	OnHand    int64  `json:"on_hand"`
-	Reserved  int64  `json:"reserved"`
-	Allocated int64  `json:"allocated"`
-	Version   int64  `json:"version"`
+	WarehouseID string `json:"warehouse_id,omitempty"`
+	TenantID    string `json:"tenant_id"`
+	SKU         string `json:"sku"`
+	OnHand      int64  `json:"on_hand"`
+	Reserved    int64  `json:"reserved"`
+	Allocated   int64  `json:"allocated"`
+	Version     int64  `json:"version"`
 }
 
 func (s StockState) Available() int64 { return s.OnHand - s.Reserved - s.Allocated }
@@ -40,7 +44,7 @@ func (s StockState) Available() int64 { return s.OnHand - s.Reserved - s.Allocat
 type Stock struct{ state StockState }
 
 func RestoreStock(s StockState) (*Stock, error) {
-	if !ValidTenant(s.TenantID) || !ValidSKU(s.SKU) || s.Version < 0 || s.OnHand < 0 || s.Reserved < 0 || s.Allocated < 0 || s.Allocated > s.OnHand || s.Reserved > s.OnHand-s.Allocated {
+	if !ValidWarehouse(s.WarehouseID) || !ValidTenant(s.TenantID) || !ValidSKU(s.SKU) || s.Version < 0 || s.OnHand < 0 || s.Reserved < 0 || s.Allocated < 0 || s.Allocated > s.OnHand || s.Reserved > s.OnHand-s.Allocated {
 		return nil, ErrCorruptState
 	}
 	return &Stock{state: s}, nil
@@ -94,6 +98,17 @@ func (s *Stock) ReverseAllocation(q int64) error {
 		return ErrCorruptState
 	}
 	s.state.Allocated -= q
+	s.state.Version++
+	return nil
+}
+
+// Ship removes physical units and their committed allocation together.
+func (s *Stock) Ship(q int64) error {
+	if !ValidQuantity(q) || q > s.state.Allocated || s.state.Version == math.MaxInt64 {
+		return ErrCorruptState
+	}
+	s.state.Allocated -= q
+	s.state.OnHand -= q
 	s.state.Version++
 	return nil
 }

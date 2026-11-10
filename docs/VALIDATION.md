@@ -1,5 +1,17 @@
 # Validation
 
+## Fourth increment: warehouse inventory and durable Fulfillment
+
+Recorded **10 November 2026** using Go 1.27.3 and the same pinned PostgreSQL 18.6 baseline. The current suite has **42 real PostgreSQL integration tests**, with race detection, isolated fresh databases, immutable facts and journals, plus domain/architecture/HTTP checks, vet, all earlier live scenarios and the new shipment/restart scenarios.
+
+Twelve added database tests cover location-scoped reservation limits and projections, concurrent automatic sourcing across warehouses, pinned single-location SKU lines, fulfillment dispatch acknowledgment loss and duplicate delivery, source-confirmation/request atomic rollback, expected-version operator races and saved responses, physical stock commit without a shipment checkpoint, expired/superseded token rejection, lost handoff response reconciliation, shipping versus compensation, immutable shipment facts/identity, tenant isolation, absence of fulfillment after declined checkout, named-location compensation and warehouse-specific poison-stream quarantine.
+
+`make verify-fulfillment` accepted a two-line checkout sourced from east and west, built two shipments, rejected premature packing and changed dispatch retries, completed pick/pack/dispatch/delivery, retained one payment capture, deducted each physical quantity once, preserved a third balance for the same SKU at another location, and matched authoritative stock with its location projection. Shipment history contained each version exactly once.
+
+`make verify-fulfillment-recovery` accepted dispatch while the worker was stopped, restarted the API, required byte-identical saved dispatch responses, restarted the worker and reached shipped/delivered with the same stock results. Reports are in ignored `artifacts/fulfillment.json` and `artifacts/fulfillment-recovery.json`. This runtime drill covers accepted work across restart; the database counterexample separately exercises the exact physical-commit/checkpoint-loss boundary.
+
+The migration also applied to the populated earlier development database, preserving default stock and old command/event meanings and creating ready requests for old confirmations. Updated API and worker binaries were deployed together. This does not establish a mixed-version rolling upgrade, real carrier effects, single-SKU location splits, returns, production authorization, or generalized manual repair. See [contracts](FULFILLMENT_API.md) and [recovery guidance](runbooks/fulfillment-recovery.md).
+
 ## Third increment: Catalog, durable checkout and simulated payments
 
 Recorded **10 November 2026** using the same Go 1.27.3/PostgreSQL 18.6 development baseline. `make verify` passed: race/unit/architecture tests, vet, all **30 real PostgreSQL integration tests**, source/progress checks, the existing labs/scenarios, and new checkout/restart scenarios. Each integration run used a fresh disposable database with event/journal immutability enabled.

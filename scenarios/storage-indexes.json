@@ -1,0 +1,8 @@
+{
+  "id": "storage-indexes",
+  "status": "verified",
+  "work_packages": ["APP-01", "C04-03"],
+  "commands": ["make verify-indexes", "make verify ID=C04-03", "go run ./cmd/guide verify-indexes", "make storage-bench"],
+  "assertions": ["four engines and both byte-key write orders retain identical logical state", "read/write/space counters have explicit phase boundaries and valid denominators", "reopen validation and full compaction costs are reported separately", "fresh repetitions retain raw samples and variance", "all five index layouts return identical ordered limited projections after rekeys and deletes", "durable row, identity, locator and secondary updates share one transaction", "injected precommit failures roll back row and index changes", "secondary queries fetch primary rows and covering queries avoid them", "tuple bounds isolate tenants, warehouse prefixes and embedded zero bytes", "the memory index is explicitly volatile", "normal PostgreSQL planning chooses multicolumn and covering scans", "vacuumed covering plans have zero heap fetches", "ordering-key/included-value updates and deletes preserve reference results", "reports identify warm/reopened cache state and leave cold/device measurements explicitly outstanding"],
+  "evidence": ["labs/ch04/indexes/db_test.go", "labs/ch04/indexes/scenario_test.go", "labs/ch04/storage/tradeoffs_test.go", "labs/ch04/storage/benchmark_test.go", "tests/integration/indexes_test.go", "benchmarks/storage/postgres.go", "benchmarks/storage/README.md", "docs/chapters/ch04/index-layouts.md"]
+}

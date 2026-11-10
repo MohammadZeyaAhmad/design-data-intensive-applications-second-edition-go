@@ -14,7 +14,7 @@ go run ./cmd/guide verify-storage
 
 Each command runs the storage race tests and a repeatable comparison, then saves `artifacts/storage.json`. The test suite includes the map oracle, corruption checks, a power-loss filesystem model and real process kills. The ordinary `make test` includes all lab tests; `make verify` also generates the storage report.
 
-`C04-01` and `C04-02` are implemented scoped verification bindings. Other plan IDs fail explicitly rather than running an unrelated broad check; their eventual interfaces remain in the original backlog.
+`C04-01`, `C04-02` and `C04-03` are implemented scoped verification bindings. The [index/trade-off verification](INDEXES.md) additionally requires the local PostgreSQL test binding for real plans. Other plan IDs fail explicitly rather than running an unrelated broad check; their eventual interfaces remain in the original backlog.
 
 For a report without rerunning tests:
 
@@ -72,6 +72,6 @@ Only an incomplete final WAL frame is truncated. A complete frame with invalid c
 
 `artifacts/storage.json` records Go/OS/architecture, filesystem type and block size, sync policy, row count, repetition count, raw write/read durations, write latency percentiles, live bytes, file bytes, state digests and reopening checks. LSM results include WAL/table/manifest bytes written, table data bytes read, Bloom checks/skips, block reads, flushes, compactions and instrumented sync calls. `block_reads` counts point-query candidate blocks; iterator data reads are counted in bytes. Counters reset on reopen. Full-file integrity verification is reported separately from query/merge data reads; directory-creation setup is outside those counters.
 
-Use the raw repeated runs to see variance. The workload starts with fresh databases but warm processes and an uncontrolled OS cache. It does not evict caches, measure device I/O, identify physical SSD behavior, or establish a universal performance ranking. bbolt has different transaction and page-allocation behavior. The custom [B+ tree](BTREE.md) now joins this comparison, with page invariants and free-page churn evidence. Complete warm/cold cache controls and broader amplification benchmarks remain in C04-03.
+Use the raw repeated runs to see variance. The workload starts with fresh databases but warm processes and an uncontrolled OS cache. It does not evict caches, measure device I/O, identify physical SSD behavior, or establish a universal performance ranking. bbolt has different transaction and page-allocation behavior. The custom [B+ tree](BTREE.md) joins this comparison, with page invariants and free-page churn evidence. The separate [controlled trade-off runner](INDEXES.md) adds sorted/shuffled write orders, phase-specific amplification, repeated variance, index layouts and PostgreSQL plans. Actual cold-OS-cache/device trials and broader scale remain outstanding in C04-03.
 
 The [chapter walkthrough](chapters/ch04/log-structured-storage.md), [recovery runbook](runbooks/storage-recovery.md), [decision](adr/0008-bounded-lsm-laboratory.md) and [validation](VALIDATION.md) explain the evidence and its limits. The lab is a working implementation; C04-01 remains in progress pending the full sub-concept audit, compression and broader format/scale stress work.

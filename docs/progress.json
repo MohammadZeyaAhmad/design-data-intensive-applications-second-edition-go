@@ -108,7 +108,7 @@
     },
     {
       "id": "C04-03",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "id": "C04-04",
@@ -364,6 +364,7 @@
     "scenarios/kafka-transport.json",
     "scenarios/temporal-checkout.json",
     "scenarios/storage-lsm.json",
-    "scenarios/storage-btree.json"
+    "scenarios/storage-btree.json",
+    "scenarios/storage-indexes.json"
   ]
 }

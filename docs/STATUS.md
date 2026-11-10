@@ -22,6 +22,8 @@ The eighth increment adds a persistent Go LSM storage lab with checksummed WAL f
 
 The ninth increment adds the custom page-based B+ tree: bounded CRC-protected pages, exact separator routing, splits/borrows/merges, root collapse, linked-leaf ranges, persistent free-page reuse and full-page redo with restartable recovery. Reference/occupancy tests, modeled torn writes, initialization faults and **18 native checkpoint/recovery cases** verify the implementation. The shared warehouse runner now compares **five stores**; the dedicated tree report also deletes, reopens and reinserts the live set to verify allocation reuse. Common key/value types, file I/O and the fault model are shared across the independent storage labs.
 
+The tenth increment adds transactional heap/clustered/secondary/covering layouts and a volatile ordered memory index for the same warehouse queries. Randomized rekeys/deletes, precommit rollback injection, prefix isolation and durable reopens verify index maintenance. A controlled four-store runner records sorted/shuffled mutations, amplification, warm/reopened reads, compaction and repeated variance. Real PostgreSQL multicolumn and covering plans preserve results and demonstrate zero heap fetches after explicit vacuum. The suite now has **72 PostgreSQL integration tests**, alongside the existing Kafka/Temporal suites. Cold-OS-cache/device trials remain explicit gaps.
+
 These pieces begin several large work packages; they do not complete those packages in full.
 
 | Plan package | Current status | Remaining scope |
@@ -46,15 +48,18 @@ These pieces begin several large work packages; they do not complete those packa
 | C12-01 | In progress: real durable broker delivery, duplicate/poison handling and bounded receipt/application boundaries | Queue/broker models, routing/fan-out, expiry/backpressure comparisons |
 | C12-02 | In progress: pinned Kafka profile, partition mapping, consumer groups, acknowledgment loss, rebalance and process recovery | Segmented-log broker, retention/lag/disk experiments, replicated durability and offset migration |
 | C04-02 | In progress: custom B+ tree, page/structure checks, splits/merges, persistent free list, full-page redo and repeated-crash evidence | Full sub-concept audit, overflow values, denser layout and broader format/scale/concurrency variants |
+| C04-03 | In progress: transactional index layouts, controlled read/write/space accounting, sequential/random schedules, repeated benchmarks and real PostgreSQL plans | Full semantic audit, true cold-OS-cache/device experiments and broader scale/concurrency |
 | C04-01 | In progress: append log, WAL/SSTables, sparse/Bloom indexes, two policies, durable manifest recovery, model/process fault tests and mature-engine comparison | Full sub-concept audit, compression and broader format/scale stress |
 | C05-05 | In progress: real Temporal workflow/activities, durable timers/signals, result receipts, versioned replay and restart evidence | Production deployment/retention, history repair and worker deployment routing |
 | Remaining packages | Planned | See the complete backlog; none is silently removed |
 
 ## Next implementation sequence
 
-1. Implement controlled storage/index amplification comparisons, then deepen format, compression and scale work.
+1. Implement column-oriented analytics/query execution while deepening storage formats, compression, scale and cache/device experiments.
 2. Continue data models, replication, sharding, analytics and governance work against the full source inventory; deepen remaining application/operations work alongside them.
 
 [Machine-readable progress](progress.json) retains all 88 package IDs. The [inventory lifecycle](../scenarios/inventory-lifecycle.json) and [Ordering](../scenarios/ordering-events.json) scenario manifests, together with [checkout/payments](../scenarios/checkout-payments.json), [warehouse/Fulfillment](../scenarios/warehouse-fulfillment.json), [workflow operations](../scenarios/workflow-operations.json), [Kafka transport](../scenarios/kafka-transport.json), [Temporal checkout](../scenarios/temporal-checkout.json), [storage/LSM](../scenarios/storage-lsm.json), and [B+ tree](../scenarios/storage-btree.json), record verified behaviors and evidence paths; they do not declare the much larger associated packages complete. `make coverage-check` validates their package IDs and file references in addition to the book inventory.
+
+The [index-layout scenario](../scenarios/storage-indexes.json) is the tenth verified manifest. The tracker now has 23 packages in progress and 65 planned, retaining all 88 original IDs.
 
 Real payment/carrier-network integration, returns, single-SKU warehouse splits, Kubernetes deployment, backup/restore workflows, Raft, CDC, and complete storage engines remain unfinished. Current capabilities are defined by the source and recorded validation, not by the eventual project scope.

@@ -5,10 +5,12 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch04/storage"
-	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch08/lostupdate"
 	"os"
 	"path/filepath"
+
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch04/indexes"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch04/storage"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch08/lostupdate"
 )
 
 func main() {
@@ -18,7 +20,7 @@ func main() {
 	}
 }
 func run(args []string) error {
-	if len(args) > 0 && (args[0] == "lsm" || args[0] == "btree") {
+	if len(args) > 0 && (args[0] == "lsm" || args[0] == "btree" || args[0] == "tradeoffs" || args[0] == "indexes") {
 		flags := flag.NewFlagSet("lab "+args[0], flag.ContinueOnError)
 		rows := flags.Int("rows", 512, "synthetic warehouse rows (32..4096)")
 		runs := flags.Int("runs", 3, "fresh database repetitions (1..5)")
@@ -34,11 +36,16 @@ func run(args []string) error {
 		if parent == "" && *output != "" {
 			parent = filepath.Dir(*output)
 		}
-		var report storage.Report
+		var report any
 		var e error
-		if args[0] == "btree" {
+		switch args[0] {
+		case "tradeoffs":
+			report, e = storage.RunTradeoffsAt(parent, *rows, *runs)
+		case "indexes":
+			report, e = indexes.RunScenarioAt(parent, *rows, *runs)
+		case "btree":
 			report, e = storage.RunBTreeScenarioAt(parent, *rows, *runs)
-		} else {
+		default:
 			report, e = storage.RunScenarioAt(parent, *rows, *runs)
 		}
 		if e != nil {
@@ -58,7 +65,7 @@ func run(args []string) error {
 		return e
 	}
 	if len(args) != 1 || args[0] != "lost-update" {
-		return errors.New("usage: lab lost-update | lsm|btree [-rows N] [-runs N] [-output path] [-workdir path]")
+		return errors.New("usage: lab lost-update | lsm|btree|tradeoffs|indexes [-rows N] [-runs N] [-output path] [-workdir path]")
 	}
 	report := lostupdate.Run()
 	if !report.ExpectedCounterexample || report.UnsafeFinal != 1 || report.AtomicFinal != 2 {

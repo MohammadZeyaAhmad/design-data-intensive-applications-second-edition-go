@@ -34,14 +34,16 @@ verify-orders:
 verify-recovery:
 	go run ./cmd/guide verify-recovery
 ifeq ($(strip $(ID)),)
-verify: test integration coverage-check lab storage-demo btree-demo verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery
+verify: test integration coverage-check lab storage-demo btree-demo index-demo tradeoffs-demo query-plans verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery
 else ifeq ($(ID),C04-01)
 verify: verify-storage
 else ifeq ($(ID),C04-02)
 verify: verify-btree
+else ifeq ($(ID),C04-03)
+verify: verify-indexes
 else
 verify:
-	@echo 'Scoped verification currently supports ID=C04-01 and ID=C04-02; other plan IDs remain future interfaces.' >&2
+	@echo 'Scoped verification currently supports ID=C04-01, C04-02 and C04-03; other plan IDs remain future interfaces.' >&2
 	@exit 2
 endif
 demo:
@@ -59,7 +61,7 @@ coverage-check:
 lab:
 	cd labs && go run ./cmd/lab lost-update
 fmt:
-	gofmt -w cmd contracts internal migrations tests labs
+	gofmt -w cmd contracts internal migrations tests labs benchmarks
 
 verify-fulfillment:
 	go run ./cmd/guide verify-fulfillment
@@ -114,3 +116,17 @@ btree-test:
 btree-demo:
 	cd labs && go run ./cmd/lab btree -output ../artifacts/btree.json
 verify-btree: coverage-check btree-test btree-demo
+
+.PHONY: index-test index-demo tradeoffs-demo query-plans storage-bench verify-indexes
+index-test:
+	cd labs && go test -race -count=1 ./ch04/indexes ./ch04/storage
+index-demo:
+	cd labs && go run ./cmd/lab indexes -output ../artifacts/indexes.json
+tradeoffs-demo:
+	cd labs && go run ./cmd/lab tradeoffs -output ../artifacts/tradeoffs.json
+query-plans:
+	go run ./benchmarks/storage/cmd/pgplan -output artifacts/query-plans.json
+storage-bench:
+	mkdir -p artifacts
+	cd labs && ATLAS_BENCH_WORKDIR=../artifacts go test -run '^$$' -bench '^BenchmarkWarmPointRead$$' -benchtime=50ms -count=3 ./ch04/storage > ../artifacts/storage-go-benchmark.txt
+verify-indexes: coverage-check index-test index-demo tradeoffs-demo query-plans storage-bench

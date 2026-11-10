@@ -49,6 +49,7 @@ make down
 - Optional Temporal checkout profile with immutable ownership, atomic activity receipts, durable timers/signals, cancellation compensation and compatible history replay.
 - Persistent Go LSM lab with WAL/SSTables, sparse indexes, Bloom filters, two compaction policies, durable manifests, modeled power loss and real process kills; compared with bbolt.
 - Custom page-based B+ tree with splits/merges, persistent free-page reuse, full-page redo, structural validation and interrupted-recovery tests.
+- Heap/clustered/secondary/covering/memory index layouts, atomic maintenance, controlled storage amplification reports and real PostgreSQL multicolumn/index-only plans.
 - Independent Go lab showing a lost-update schedule, connected to the real database contention tests.
 
 Inventory state is authoritative in PostgreSQL tables; Ordering state is derived from its immutable event stream. A placed order currently records SKU/quantity intent. An order remains unpriced intent until checkout accepts a Catalog quote; captured payment and committed stock are required for confirmation. The local dispatcher uses PostgreSQL. Catalog price authority, checkout capture/compensation and a two-leg payment journal now run through published contracts; warehouse sourcing and a separate Fulfillment context now carry confirmed allocations through picking, packing, durable dispatch and delivery recording. Kafka transport is now executable; CDC, replicated broker operation, full telemetry and the remaining laboratories are tracked in the backlog.
@@ -72,6 +73,7 @@ contracts/                         Published business interfaces and value repre
 internal/platform/                Configuration and identifier utilities
 migrations/                       Embedded, checksum-validated SQL
 labs/                             Separate Go module: storage engines, embedded comparison, lost-update lab
+benchmarks/storage/               Controlled experiment protocol and PostgreSQL plan runner
 tests/architecture/                Enforced domain/feature import boundaries
 tests/integration/                 Real PostgreSQL concurrency and failure tests
 scenarios/                        Named verification scenarios linked to the plan
@@ -83,6 +85,8 @@ Start with the [inventory API](docs/API.md), [Ordering API](docs/ORDERING_API.md
 
 ## Full-book scope remains mandatory
 
+The [index-layout guide](docs/INDEXES.md) connects transactional index maintenance, controlled engine comparisons and actual PostgreSQL plans. Its [benchmark protocol](benchmarks/storage/README.md) records cache/device limits and the remaining experiments.
+
 The planning inventory covers **14 chapters, 476 substantive headings, 61 glossary terms, 4,215 index occurrences, and 48 backend-pattern entries**. Every concept requires an implementation, executable experiment/model, or appropriate worked design exercise. Runtime profiles limit resources, not final scope.
 
 ```sh
@@ -92,6 +96,8 @@ make verify-storage     # LSM/map oracle, power-loss model, real kills and bbolt
 make verify ID=C04-01    # scoped verification of the LSM package
 make verify-btree       # B+ tree structure, redo/crash tests and bbolt comparison
 make verify ID=C04-02    # scoped verification of the B+ tree package
+make verify-indexes     # layouts, amplification, PostgreSQL plans and Go benchmarks
+make verify ID=C04-03    # scoped index/trade-off verification; local test DB required
 make storage-demo       # five-engine warehouse comparison; writes artifacts/storage.json
 make integration        # fails if the local atlas_test binding is missing
 make verify-lifecycle   # expiry, late commit and allocation reversal over real HTTP

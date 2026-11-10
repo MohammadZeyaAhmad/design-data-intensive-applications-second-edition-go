@@ -23,7 +23,7 @@ import (
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch04/lsm"
 )
 
-type kv = storekv.Store
+type kvStore = storekv.Store
 type Run struct {
 	WriteNanos           int64              `json:"write_nanos"`
 	ReadNanos            int64              `json:"read_nanos"`
@@ -102,7 +102,7 @@ func runEngines(parent string, rows, repetitions int, engines []string) (Report,
 		return report, e
 	}
 	defer os.RemoveAll(dir)
-	report = Report{DatasetRows: rows, Repetitions: repetitions, Environment: map[string]any{"go": runtime.Version(), "os": runtime.GOOS, "arch": runtime.GOARCH, "gomaxprocs": runtime.GOMAXPROCS(0), "filesystem": filesystemInfo(dir), "cache": "fresh database; warm process and OS cache; no cache eviction", "timing": "wall clock; includes sync and compaction; no device-level claims", "bbolt_version": moduleVersion("go.etcd.io/bbolt")}}
+	report = Report{DatasetRows: rows, Repetitions: repetitions, Environment: Environment(dir)}
 	for _, engine := range engines {
 		result := Result{Engine: engine, Durability: "sync every mutation", Configuration: configuration(engine)}
 		for run := 0; run < repetitions; run++ {
@@ -139,6 +139,12 @@ func runEngines(parent string, rows, repetitions int, engines []string) (Report,
 	}
 	return report, nil
 }
+
+// Environment describes the actual report directory's filesystem, without
+// treating a container filesystem as an identified physical storage device.
+func Environment(dir string) map[string]any {
+	return map[string]any{"go": runtime.Version(), "os": runtime.GOOS, "arch": runtime.GOARCH, "gomaxprocs": runtime.GOMAXPROCS(0), "filesystem": filesystemInfo(dir), "cache": "fresh database; warm process and OS cache; no cache eviction", "timing": "wall clock; includes sync and compaction; no device-level claims", "bbolt_version": moduleVersion("go.etcd.io/bbolt")}
+}
 func moduleVersion(path string) string {
 	if b, ok := debug.ReadBuildInfo(); ok {
 		for _, d := range b.Deps {
@@ -149,7 +155,7 @@ func moduleVersion(path string) string {
 	}
 	return "unknown"
 }
-func openStore(dir, engine string) (kv, error) {
+func openStore(dir, engine string) (kvStore, error) {
 	if engine == "btree" {
 		return btree.Open(dir, btree.Options{})
 	}
@@ -345,7 +351,7 @@ func runStore(dir, engine string, n int) (result Run, err error) {
 	}
 	return result, nil
 }
-func verify(db kv, oracle map[string][]byte, n int) error {
+func verify(db kvStore, oracle map[string][]byte, n int) error {
 	for i := 0; i < n; i++ {
 		k := key(i, false)
 		want, ok := oracle[string(k)]
@@ -376,7 +382,7 @@ func verify(db kv, oracle map[string][]byte, n int) error {
 }
 
 // Probe after measurements so read timing and write counters stay comparable.
-func emptyValueProbe(db kv) error {
+func emptyValueProbe(db kvStore) error {
 	empty := []byte("empty-value-probe")
 	if e := db.Put(empty, nil); e != nil {
 		return e

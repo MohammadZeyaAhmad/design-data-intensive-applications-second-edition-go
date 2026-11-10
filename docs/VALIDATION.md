@@ -1,5 +1,19 @@
 # Validation
 
+## Tenth increment: index layouts and storage trade-offs
+
+Recorded **10 November 2026** with Go **1.27.3**, Linux amd64 and bbolt **1.4.3**. All five index layouts pass the same 360-step random mutation/query schedule, including rekeys and deletes, and the durable layouts reopen six times each. Dedicated tests verify natural-identity conflict rollback, included-value maintenance, embedded-zero/prefix isolation, concurrent reads/writes and rollback after both row and index structures have changed. The unchanged storage engines pass their existing regression tests.
+
+The default layout report starts with **512 rows**, applies rekeys and deletes, and retains **465 live rows**. Across **38 queries** each layout returns the same **613 projections**. The heap decodes **17,670 full rows**; clustered/secondary scans decode 613. The secondary layout performs **613 primary lookups**, while the covering layout decodes no full rows and performs **zero primary lookups**. These are algorithmic counts, not page or device reads. The memory layout is explicitly volatile. Each layout has three raw repeated runs.
+
+The controlled report records **24 runs**: four engines × sequential/random byte-key ordering × three fresh repetitions. Every run ends with **438 live keys** and the same state digest. Byte accounting excludes initialization and separates mutation/flush, hit/miss/range, reopen validation and full compaction. Raw timings and population variance are retained. File-space and requested-byte amplification have explicit denominators; unavailable bbolt byte counters are omitted. The complementary Go point-read microbenchmark records three samples per engine with allocation counts.
+
+The real PostgreSQL experiment uses **32,768 wide temporary rows**, four index cases and three raw JSON plans per case. Without planner enable-switch changes, the multicolumn case selects an index scan and the covering case selects an index-only scan with **zero heap fetches after VACUUM**. All return the same 40 ordered projections. Updating an ordering field and included version, then deleting another selected row, matches the independent fixture model. A smaller 8,192-row repeated fixture is now the **72nd PostgreSQL integration test**.
+
+Local JSON reports run on **overlayfs**, with warm process/OS state. Reopened handles retain that OS cache and validate pages/tables; they are not claimed as cold reads. Native Go test temporary directories can be tmpfs. The PostgreSQL fixture uses local buffers for temporary relations. Physical devices are unidentified, so no universal SSD or engine-speed conclusion is drawn.
+
+Scoped Make and guide verification produce `artifacts/indexes.json`, `artifacts/tradeoffs.json` and `artifacts/query-plans.json`; Make also produces `artifacts/storage-go-benchmark.txt`. CI retains them alongside the original reports. The [scenario](../scenarios/storage-indexes.json) brings the tracker to **ten scenario manifests**, retaining **88 packages: 23 in progress, 65 planned**. C04-03 remains in progress for its full semantic audit, actual cold-OS-cache/device experiments and broader scale/concurrency. See the [guide](INDEXES.md), [chapter](chapters/ch04/index-layouts.md) and [protocol](../benchmarks/storage/README.md).
+
 ## Ninth increment: page-based B+ tree and full-page redo
 
 Recorded **10 November 2026**, using Go **1.27.3**, Linux amd64 and the same pinned bbolt baseline. The custom B+ tree passes map-oracle schedules for orders 4, 6 and 8, with structural checks after mutations. Dedicated schedules verify root growth/collapse, both borrowing and merging, exact separators, linked ranges, copied/binary/empty-value handling, writer exclusion and reuse of the original page allocation after deletion and reopening.

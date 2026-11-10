@@ -33,7 +33,7 @@ func main() {
 }
 func run() error {
 	if len(os.Args) != 2 {
-		return errors.New("usage: guide configure|doctor|wait|demo|demo-orders|demo-checkout|verify-checkout|verify-checkout-recovery|verify-fulfillment|verify-fulfillment-recovery|verify-operations|verify-kafka|verify-temporal|verify-storage|verify-btree|verify-live|verify-lifecycle|verify-orders|verify-recovery|coverage")
+		return errors.New("usage: guide configure|doctor|wait|demo|demo-orders|demo-checkout|verify-checkout|verify-checkout-recovery|verify-fulfillment|verify-fulfillment-recovery|verify-operations|verify-kafka|verify-temporal|verify-storage|verify-btree|verify-indexes|verify-live|verify-lifecycle|verify-orders|verify-recovery|coverage")
 	}
 	command := os.Args[1]
 	if command == "configure" {
@@ -42,7 +42,7 @@ func run() error {
 	if command == "coverage" {
 		return coverage()
 	}
-	if command == "verify-storage" || command == "verify-btree" {
+	if command == "verify-storage" || command == "verify-btree" || command == "verify-indexes" {
 		if err := coverage(); err != nil {
 			return err
 		}
@@ -50,7 +50,11 @@ func run() error {
 		if command == "verify-btree" {
 			target, lab, output = "./ch04/btree", "btree", "../artifacts/btree.json"
 		}
-		for _, args := range [][]string{{"test", "-race", "-count=1", target}, {"run", "./cmd/lab", lab, "-output", output}} {
+		steps := [][]string{{"test", "-race", "-count=1", target}, {"run", "./cmd/lab", lab, "-output", output}}
+		if command == "verify-indexes" {
+			steps = [][]string{{"test", "-race", "-count=1", "./ch04/indexes", "./ch04/storage"}, {"run", "./cmd/lab", "indexes", "-output", "../artifacts/indexes.json"}, {"run", "./cmd/lab", "tradeoffs", "-output", "../artifacts/tradeoffs.json"}}
+		}
+		for _, args := range steps {
 			cmd := exec.Command("go", args...)
 			cmd.Dir = "labs"
 			cmd.Stdout = os.Stdout
@@ -58,6 +62,12 @@ func run() error {
 			if err := cmd.Run(); err != nil {
 				return err
 			}
+		}
+		if command == "verify-indexes" {
+			cmd := exec.Command("go", "run", "./benchmarks/storage/cmd/pgplan", "-output", "artifacts/query-plans.json")
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			return cmd.Run()
 		}
 		return nil
 	}

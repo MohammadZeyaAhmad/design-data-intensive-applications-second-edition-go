@@ -112,7 +112,7 @@
     },
     {
       "id": "C04-04",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "id": "C04-05",
@@ -365,6 +365,7 @@
     "scenarios/temporal-checkout.json",
     "scenarios/storage-lsm.json",
     "scenarios/storage-btree.json",
-    "scenarios/storage-indexes.json"
+    "scenarios/storage-indexes.json",
+    "scenarios/storage-columns.json"
   ]
 }

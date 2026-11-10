@@ -38,7 +38,7 @@ jobs:
       - name: Real PostgreSQL concurrency and failure tests
         run: make integration
       - name: Source inventory and executable storage comparisons
-        run: make coverage-check lab storage-demo btree-demo index-demo tradeoffs-demo query-plans storage-bench
+        run: make coverage-check lab storage-demo btree-demo index-demo tradeoffs-demo column-demo query-plans storage-bench
       - name: Bounded storage record fuzzing
         run: cd labs && go test -run '^$' -fuzz '^FuzzRecordDecoder$' -fuzztime=5s -parallel=2 ./ch04/lsm
       - name: Bounded B+ tree page and redo fuzzing
@@ -46,6 +46,12 @@ jobs:
           cd labs
           go test -run '^$' -fuzz '^FuzzPageDecoder$' -fuzztime=5s -parallel=2 ./ch04/btree
           go test -run '^$' -fuzz '^FuzzRedoDecoder$' -fuzztime=5s -parallel=2 ./ch04/btree
+      - name: Bounded column, segment and expression fuzzing
+        run: |
+          cd labs
+          go test -run '^$' -fuzz '^FuzzColumnDecoder$' -fuzztime=5s -parallel=2 ./ch04/columnstore
+          go test -run '^$' -fuzz '^FuzzSegmentDecoder$' -fuzztime=5s -parallel=2 ./ch04/columnstore
+          go test -run '^$' -fuzz '^FuzzExpressionParser$' -fuzztime=5s -parallel=2 ./ch04/columnstore
       - name: Retain storage comparison report
         uses: actions/upload-artifact@v4
         with:
@@ -57,6 +63,7 @@ jobs:
             artifacts/tradeoffs.json
             artifacts/query-plans.json
             artifacts/storage-go-benchmark.txt
+            artifacts/columnstore.json
       - name: Verify application builds independently of the lab workspace
         run: |
           GOWORK=off go build ./cmd/atlas ./cmd/guide ./cmd/admin

@@ -34,16 +34,18 @@ verify-orders:
 verify-recovery:
 	go run ./cmd/guide verify-recovery
 ifeq ($(strip $(ID)),)
-verify: test integration coverage-check lab storage-demo btree-demo index-demo tradeoffs-demo query-plans verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery
+verify: test integration coverage-check lab storage-demo btree-demo index-demo tradeoffs-demo column-demo query-plans verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery
 else ifeq ($(ID),C04-01)
 verify: verify-storage
 else ifeq ($(ID),C04-02)
 verify: verify-btree
 else ifeq ($(ID),C04-03)
 verify: verify-indexes
+else ifeq ($(ID),C04-04)
+verify: verify-columnstore
 else
 verify:
-	@echo 'Scoped verification currently supports ID=C04-01, C04-02 and C04-03; other plan IDs remain future interfaces.' >&2
+	@echo 'Scoped verification currently supports ID=C04-01 through C04-04; other plan IDs remain future interfaces.' >&2
 	@exit 2
 endif
 demo:
@@ -130,3 +132,10 @@ storage-bench:
 	mkdir -p artifacts
 	cd labs && ATLAS_BENCH_WORKDIR=../artifacts go test -run '^$$' -bench '^BenchmarkWarmPointRead$$' -benchtime=50ms -count=3 ./ch04/storage > ../artifacts/storage-go-benchmark.txt
 verify-indexes: coverage-check index-test index-demo tradeoffs-demo query-plans storage-bench
+
+.PHONY: column-test column-demo verify-columnstore
+column-test:
+	cd labs && go test -race -count=1 ./ch04/columnstore
+column-demo:
+	cd labs && go run ./cmd/lab columnstore -output ../artifacts/columnstore.json
+verify-columnstore: coverage-check column-test column-demo

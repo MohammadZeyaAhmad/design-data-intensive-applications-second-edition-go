@@ -24,6 +24,8 @@ The ninth increment adds the custom page-based B+ tree: bounded CRC-protected pa
 
 The tenth increment adds transactional heap/clustered/secondary/covering layouts and a volatile ordered memory index for the same warehouse queries. Randomized rekeys/deletes, precommit rollback injection, prefix isolation and durable reopens verify index maintenance. A controlled four-store runner records sorted/shuffled mutations, amplification, warm/reopened reads, compaction and repeated variance. Real PostgreSQL multicolumn and covering plans preserve results and demonstrate zero heap fetches after explicit vacuum. The suite now has **72 PostgreSQL integration tests**, alongside the existing Kafka/Temporal suites. Cold-OS-cache/device trials remain explicit gaps.
 
+The eleventh increment adds a bounded compressed column format, sorted immutable segments, validated row-group zone maps, a durable versioned delta and tombstone floors. Scalar AST, bitmap-batch and actually compiled native Go predicates match independent row queries, including SQL unknown values, updates and deletes. All eight tenant-preserving cube groupings update atomically with facts and match full reductions before/after rebuild and reopening. Eight native publication-kill cases and three codec/expression fuzzers supplement the lab tests. Compilation/process costs, logical byte counters and the absence of explicit SIMD/distributed cloud operation remain visible in the report.
+
 These pieces begin several large work packages; they do not complete those packages in full.
 
 | Plan package | Current status | Remaining scope |
@@ -49,17 +51,18 @@ These pieces begin several large work packages; they do not complete those packa
 | C12-02 | In progress: pinned Kafka profile, partition mapping, consumer groups, acknowledgment loss, rebalance and process recovery | Segmented-log broker, retention/lag/disk experiments, replicated durability and offset migration |
 | C04-02 | In progress: custom B+ tree, page/structure checks, splits/merges, persistent free list, full-page redo and repeated-crash evidence | Full sub-concept audit, overflow values, denser layout and broader format/scale/concurrency variants |
 | C04-03 | In progress: transactional index layouts, controlled read/write/space accounting, sequential/random schedules, repeated benchmarks and real PostgreSQL plans | Full semantic audit, true cold-OS-cache/device experiments and broader scale/concurrency |
+| C04-04 | In progress: compressed columns, pruning, sorted segments/delta, three predicate modes, nullable grouping sets, atomic rollups and native publication tests | Full semantic audit, distributed/cloud operation, production event ingestion and broader format/scale/CPU work |
 | C04-01 | In progress: append log, WAL/SSTables, sparse/Bloom indexes, two policies, durable manifest recovery, model/process fault tests and mature-engine comparison | Full sub-concept audit, compression and broader format/scale stress |
 | C05-05 | In progress: real Temporal workflow/activities, durable timers/signals, result receipts, versioned replay and restart evidence | Production deployment/retention, history repair and worker deployment routing |
 | Remaining packages | Planned | See the complete backlog; none is silently removed |
 
 ## Next implementation sequence
 
-1. Implement column-oriented analytics/query execution while deepening storage formats, compression, scale and cache/device experiments.
+1. Implement geospatial/full-text/vector search experiments while deepening storage formats, semantic audits, scale and cache/device experiments.
 2. Continue data models, replication, sharding, analytics and governance work against the full source inventory; deepen remaining application/operations work alongside them.
 
 [Machine-readable progress](progress.json) retains all 88 package IDs. The [inventory lifecycle](../scenarios/inventory-lifecycle.json) and [Ordering](../scenarios/ordering-events.json) scenario manifests, together with [checkout/payments](../scenarios/checkout-payments.json), [warehouse/Fulfillment](../scenarios/warehouse-fulfillment.json), [workflow operations](../scenarios/workflow-operations.json), [Kafka transport](../scenarios/kafka-transport.json), [Temporal checkout](../scenarios/temporal-checkout.json), [storage/LSM](../scenarios/storage-lsm.json), and [B+ tree](../scenarios/storage-btree.json), record verified behaviors and evidence paths; they do not declare the much larger associated packages complete. `make coverage-check` validates their package IDs and file references in addition to the book inventory.
 
-The [index-layout scenario](../scenarios/storage-indexes.json) is the tenth verified manifest. The tracker now has 23 packages in progress and 65 planned, retaining all 88 original IDs.
+The [index-layout scenario](../scenarios/storage-indexes.json) and [column-analytics scenario](../scenarios/storage-columns.json) bring the tracker to eleven verified manifests, with 24 packages in progress and 64 planned, retaining all 88 original IDs.
 
 Real payment/carrier-network integration, returns, single-SKU warehouse splits, Kubernetes deployment, backup/restore workflows, Raft, CDC, and complete storage engines remain unfinished. Current capabilities are defined by the source and recorded validation, not by the eventual project scope.

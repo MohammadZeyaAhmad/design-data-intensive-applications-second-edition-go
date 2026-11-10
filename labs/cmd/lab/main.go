@@ -1,13 +1,16 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch04/columnstore"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch04/indexes"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch04/storage"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch08/lostupdate"
@@ -20,7 +23,7 @@ func main() {
 	}
 }
 func run(args []string) error {
-	if len(args) > 0 && (args[0] == "lsm" || args[0] == "btree" || args[0] == "tradeoffs" || args[0] == "indexes") {
+	if len(args) > 0 && (args[0] == "lsm" || args[0] == "btree" || args[0] == "tradeoffs" || args[0] == "indexes" || args[0] == "columnstore") {
 		flags := flag.NewFlagSet("lab "+args[0], flag.ContinueOnError)
 		rows := flags.Int("rows", 512, "synthetic warehouse rows (32..4096)")
 		runs := flags.Int("runs", 3, "fresh database repetitions (1..5)")
@@ -39,6 +42,10 @@ func run(args []string) error {
 		var report any
 		var e error
 		switch args[0] {
+		case "columnstore":
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+			report, e = columnstore.RunScenarioAt(ctx, parent, *rows, *runs)
 		case "tradeoffs":
 			report, e = storage.RunTradeoffsAt(parent, *rows, *runs)
 		case "indexes":
@@ -65,7 +72,7 @@ func run(args []string) error {
 		return e
 	}
 	if len(args) != 1 || args[0] != "lost-update" {
-		return errors.New("usage: lab lost-update | lsm|btree|tradeoffs|indexes [-rows N] [-runs N] [-output path] [-workdir path]")
+		return errors.New("usage: lab lost-update | lsm|btree|tradeoffs|indexes|columnstore [-rows N] [-runs N] [-output path] [-workdir path]")
 	}
 	report := lostupdate.Run()
 	if !report.ExpectedCounterexample || report.UnsafeFinal != 1 || report.AtomicFinal != 2 {

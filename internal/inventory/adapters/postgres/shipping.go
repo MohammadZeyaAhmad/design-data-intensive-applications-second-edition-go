@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/envelope"
 	api "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/inventory"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/domain"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/ports"
@@ -10,6 +12,11 @@ import (
 var _ api.Dispatcher = Workflow{}
 
 func (w Workflow) Dispatch(ctx context.Context, tenant, id string) (api.Hold, error) {
+	metadata, metaErr := envelope.Record(ctx, "system:internal", id)
+	if metaErr != nil {
+		return api.Hold{}, metaErr
+	}
+	ctx = envelope.With(ctx, metadata)
 	tx, err := w.Store.Pool.Begin(ctx)
 	if err != nil {
 		return api.Hold{}, err

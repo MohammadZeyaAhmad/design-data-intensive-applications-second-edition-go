@@ -32,13 +32,13 @@ The response is 202 with a checkout UUID, order UUID, accepted price snapshot an
 
 | Method/path | Meaning |
 |---|---|
-| `GET /v1/checkouts/{id}` | Current workflow stage, amount/currency, reason, retry count, cancellation request and update time |
+| `GET /v1/checkouts/{id}` | Current workflow stage, amount/currency, reason, retry count, cancellation request, pause/control version, provenance and update time |
 | `POST /v1/checkouts/{id}/cancel` | Empty body; idempotently request cancellation of a nonterminal workflow; 202 acknowledges the request |
 | `GET /v1/orders/{id}` | Authoritative domain state, including immutable accepted pricing and eventual confirmation/failure |
 
 The workflow record is created asynchronously, so its first read may return 404 briefly after acceptance. Nonterminal phases are `reserving`, `capturing`, `allocating`, `confirming`, and `compensating`. Final workflow states are `confirmed`, `failed`, and `cancelled`.
 
-A cancellation request can lose a race with confirmation. The source aggregate decides which transition wins; a confirmed order is preserved rather than refunded by a stale compensator. On failure, the order may already show `checkout_failed` while the workflow remains `compensating`. Financial/resource cleanup is complete only when the workflow reaches its final state.
+A cancellation request can lose a race with confirmation. The source aggregate decides which transition wins; a confirmed order is preserved rather than refunded by a stale compensator. On failure, the order may already show `checkout_failed` while the workflow remains `compensating`. Financial/resource cleanup is complete only when the workflow reaches its final state. A paused workflow waits for an operator resume, including after a cancellation request; see [local controls](OPERATIONS.md).
 
 Inventory now selects one warehouse for each whole SKU line and pins it in the allocation. Confirmation atomically schedules Fulfillment, which creates one shipment per warehouse. See [warehouse and shipment contracts](FULFILLMENT_API.md); post-confirmation changes and real carriers remain separate work. Workflow-owned reservation IDs cannot be committed/released/reversed through ordinary reservation endpoints; the published workflow contract owns their lifecycle.
 
@@ -54,7 +54,7 @@ Inventory now selects one warehouse for each whole SKU line and pins it in the a
 
 These are local test references. No actual card or external payment account is used. The provider runs in a separate authenticated HTTP process at loopback port 18082 for local development. Its token is generated into ignored `.env`, never printed. It has its own transaction/state namespace in the development PostgreSQL instance. Shared hosting is not a cross-context transaction: provider persistence, Payments journal persistence, Ordering events, and workflow checkpoints commit independently.
 
-`GET /v1/payments/{checkout_id}` returns this tenant's observed payment receipt; `GET /v1/payments/{checkout_id}/journal` returns its immutable entries. Capture debits `provider_clearing` and credits `customer_liability`; refund reverses those accounts. One row is a balanced two-leg transfer. Uniqueness prevents duplicate capture/refund entries, amount/currency must match the immutable intent, and a deferred constraint requires a capture before refund. Journal updates/deletes are rejected. This representation does not yet implement arbitrary multi-account journals, partial refunds, authorization/capture separation, or webhooks.
+`GET /v1/payments/{checkout_id}` returns this tenant's observed payment receipt; `GET /v1/payments/{checkout_id}/journal` returns its immutable entries with executor/correlation/cause/origin-request metadata. Metadata never alters the saved money identity. Capture debits `provider_clearing` and credits `customer_liability`; refund reverses those accounts. One row is a balanced two-leg transfer. Uniqueness prevents duplicate capture/refund entries, amount/currency must match the immutable intent, and a deferred constraint requires a capture before refund. Journal updates/deletes are rejected. This representation does not yet implement arbitrary multi-account journals, partial refunds, authorization/capture separation, or webhooks.
 
 An uncertain response stays retryable; timeout does not mean decline. A close operation can atomically void an unseen provider intent, permanently fencing a delayed capture. If the provider captured but Payments missed the result, refund reconciliation records both capture and refund in one local journal transaction.
 

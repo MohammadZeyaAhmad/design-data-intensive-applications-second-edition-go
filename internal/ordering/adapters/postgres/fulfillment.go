@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/envelope"
 	api "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/fulfillment"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/ordering/domain"
 	"github.com/jackc/pgx/v5"
@@ -16,7 +18,7 @@ func enqueueFulfillment(ctx context.Context, tx pgx.Tx, tenant, order string, e 
 	if err := json.Unmarshal(e.Data, &proof); err != nil {
 		return err
 	}
-	r := api.Request{ID: proof.CheckoutID, TenantID: tenant, OrderID: order}
+	r := api.Request{Metadata: envelope.From(ctx), ID: proof.CheckoutID, TenantID: tenant, OrderID: order}
 	for _, a := range proof.Allocations {
 		r.Allocations = append(r.Allocations, api.Allocation{ID: a.ID, SKU: a.SKU, WarehouseID: a.WarehouseID, Quantity: a.Quantity})
 	}

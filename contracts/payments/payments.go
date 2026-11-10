@@ -3,6 +3,8 @@ package payments
 import (
 	"context"
 	"errors"
+
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/envelope"
 )
 
 var ErrUnknown = errors.New("provider outcome is uncertain")
@@ -10,11 +12,12 @@ var ErrNotFound = errors.New("payment not found")
 var ErrConflict = errors.New("payment identity has different amount or currency")
 
 type Intent struct {
-	TenantID    string `json:"tenant_id"`
-	ID          string `json:"id"`
-	AmountMinor int64  `json:"amount_minor"`
-	Currency    string `json:"currency"`
-	Method      string `json:"method,omitempty"`
+	Metadata    envelope.Metadata `json:"metadata,omitzero"`
+	TenantID    string            `json:"tenant_id"`
+	ID          string            `json:"id"`
+	AmountMinor int64             `json:"amount_minor"`
+	Currency    string            `json:"currency"`
+	Method      string            `json:"method,omitempty"`
 }
 type Receipt struct {
 	ID          string `json:"id"`

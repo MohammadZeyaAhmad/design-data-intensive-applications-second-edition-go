@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/catalog"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/envelope"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/catalog/domain"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/cmdtx"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/commands"
@@ -27,11 +29,20 @@ func (s *Store) Publish(ctx context.Context, r commands.Request, p domain.Produc
 		if version != p.Version {
 			return domain.Product{}, catalog.ErrConflict
 		}
-		p.Version++
-		if _, err := tx.Exec(ctx, `INSERT INTO catalog.prices(tenant_id,sku,version,name,unit_price_minor,currency) VALUES($1,$2,$3,$4,$5,$6)`, r.Tenant, p.SKU, p.Version, p.Name, p.UnitPriceMinor, p.Currency); err != nil {
+		cause, err := identity.NewID()
+		if err != nil {
 			return domain.Product{}, err
 		}
-		_, err := tx.Exec(ctx, `UPDATE catalog.products SET version=$3 WHERE tenant_id=$1 AND sku=$2`, r.Tenant, p.SKU, p.Version)
+		m, err := envelope.Record(ctx, "system:internal", cause)
+		if err != nil {
+			return domain.Product{}, err
+		}
+		meta, _ := json.Marshal(m)
+		p.Version++
+		if _, err := tx.Exec(ctx, `INSERT INTO catalog.prices(tenant_id,sku,version,name,unit_price_minor,currency,metadata) VALUES($1,$2,$3,$4,$5,$6,$7)`, r.Tenant, p.SKU, p.Version, p.Name, p.UnitPriceMinor, p.Currency, meta); err != nil {
+			return domain.Product{}, err
+		}
+		_, err = tx.Exec(ctx, `UPDATE catalog.products SET version=$3 WHERE tenant_id=$1 AND sku=$2`, r.Tenant, p.SKU, p.Version)
 		return p, err
 	})
 }
@@ -96,7 +107,12 @@ func (s *Store) CreateQuote(ctx context.Context, r commands.Request, lines []dom
 		if err != nil {
 			return catalog.Quote{}, err
 		}
-		_, err = tx.Exec(ctx, `INSERT INTO catalog.quotes(tenant_id,id,body,expires_at) VALUES($1,$2::uuid,$3,$4)`, r.Tenant, q.ID, b, q.ExpiresAt)
+		m, err := envelope.Record(ctx, "system:internal", q.ID)
+		if err != nil {
+			return catalog.Quote{}, err
+		}
+		meta, _ := json.Marshal(m)
+		_, err = tx.Exec(ctx, `INSERT INTO catalog.quotes(tenant_id,id,body,expires_at,metadata) VALUES($1,$2::uuid,$3,$4,$5)`, r.Tenant, q.ID, b, q.ExpiresAt, meta)
 		return q, err
 	})
 }

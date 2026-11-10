@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/envelope"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/domain"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/ports"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/identity"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -54,6 +56,15 @@ func (s *Store) Execute(ctx context.Context, r ports.Request, fn func(context.Co
 	if err != nil {
 		return ports.Outcome{}, false, err
 	}
+	cause, err := identity.NewID()
+	if err != nil {
+		return ports.Outcome{}, false, err
+	}
+	m, err := envelope.Record(ctx, "system:internal", cause)
+	if err != nil {
+		return ports.Outcome{}, false, err
+	}
+	ctx = envelope.With(ctx, m)
 	out, err := fn(ctx, &transaction{tx: tx, tenant: r.TenantID})
 	if err != nil {
 		return ports.Outcome{}, false, err
@@ -191,7 +202,12 @@ func (t *transaction) InsertReservation(ctx context.Context, aggregate *domain.R
 	if r.TenantID != t.tenant {
 		return domain.ErrCorruptState
 	}
-	_, err := t.tx.Exec(ctx, `INSERT INTO inventory.reservations (tenant_id,id,sku,quantity,status,version,expires_at,warehouse_id) VALUES ($1,$2::uuid,$3,$4,$5,$6,$7,$8)`, t.tenant, r.ID, r.SKU, r.Quantity, r.Status, r.Version, r.ExpiresAt, dbWarehouse(r.WarehouseID))
+	m, err := envelope.Record(ctx, "system:internal", r.ID)
+	if err != nil {
+		return err
+	}
+	meta, _ := json.Marshal(m)
+	_, err = t.tx.Exec(ctx, `INSERT INTO inventory.reservations (tenant_id,id,sku,quantity,status,version,expires_at,warehouse_id,metadata) VALUES ($1,$2::uuid,$3,$4,$5,$6,$7,$8,$9)`, t.tenant, r.ID, r.SKU, r.Quantity, r.Status, r.Version, r.ExpiresAt, dbWarehouse(r.WarehouseID), meta)
 	return err
 }
 func (t *transaction) SaveReservation(ctx context.Context, aggregate *domain.Reservation) error {
@@ -216,6 +232,19 @@ func (t *transaction) AppendEvent(ctx context.Context, eventType string, out por
 	if err != nil {
 		return err
 	}
-	_, err = t.tx.Exec(ctx, `INSERT INTO inventory.outbox (tenant_id,sku,aggregate_version,event_type,payload,warehouse_id) VALUES ($1,$2,$3,$4,$5,$6)`, t.tenant, out.Stock.SKU, out.Stock.Version, eventType, b, dbWarehouse(out.Stock.WarehouseID))
+	id, err := identity.NewID()
+	if err != nil {
+		return err
+	}
+	cause := envelope.From(ctx).CausationID
+	if cause == "" {
+		cause = id
+	}
+	m, err := envelope.Record(ctx, "system:internal", cause)
+	if err != nil {
+		return err
+	}
+	meta, _ := json.Marshal(m)
+	_, err = t.tx.Exec(ctx, `INSERT INTO inventory.outbox (tenant_id,sku,aggregate_version,event_type,payload,warehouse_id,event_id,metadata) VALUES ($1,$2,$3,$4,$5,$6,$7::uuid,$8)`, t.tenant, out.Stock.SKU, out.Stock.Version, eventType, b, dbWarehouse(out.Stock.WarehouseID), id, meta)
 	return err
 }

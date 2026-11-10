@@ -2,7 +2,11 @@
 // private shipment model or persistence. IDs are stable across redelivery.
 package fulfillment
 
-import "context"
+import (
+	"context"
+
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/envelope"
+)
 
 type Allocation struct {
 	ID          string `json:"id"`
@@ -11,10 +15,11 @@ type Allocation struct {
 	Quantity    int64  `json:"quantity"`
 }
 type Request struct {
-	ID          string       `json:"id"`
-	TenantID    string       `json:"tenant_id"`
-	OrderID     string       `json:"order_id"`
-	Allocations []Allocation `json:"allocations"`
+	Metadata    envelope.Metadata `json:"metadata,omitzero"`
+	ID          string            `json:"id"`
+	TenantID    string            `json:"tenant_id"`
+	OrderID     string            `json:"order_id"`
+	Allocations []Allocation      `json:"allocations"`
 }
 type Sink interface {
 	Submit(context.Context, Request) error

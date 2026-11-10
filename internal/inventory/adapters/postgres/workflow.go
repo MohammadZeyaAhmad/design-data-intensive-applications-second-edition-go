@@ -3,12 +3,14 @@ package postgres
 import (
 	"context"
 	"errors"
+	"time"
+
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/envelope"
 	api "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/inventory"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/domain"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/ports"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/identity"
 	"github.com/jackc/pgx/v5"
-	"time"
 )
 
 type Workflow struct{ Store *Store }
@@ -52,6 +54,11 @@ func lockStep(ctx context.Context, tx pgx.Tx, tenant, id string, line api.Line, 
 	return closed, nil
 }
 func (w Workflow) Reserve(ctx context.Context, tenant, id string, line api.Line, ttl int64) (api.Hold, error) {
+	metadata, metaErr := envelope.Record(ctx, "system:internal", id)
+	if metaErr != nil {
+		return api.Hold{}, metaErr
+	}
+	ctx = envelope.With(ctx, metadata)
 	if ttl < 1 || ttl > 3600 {
 		return api.Hold{}, domain.ErrInvalidInput
 	}
@@ -124,6 +131,11 @@ func (w Workflow) Get(ctx context.Context, tenant, id string) (api.Hold, error) 
 	return holdView(r), workflowError(err)
 }
 func (w Workflow) Commit(ctx context.Context, tenant, id string) (api.Hold, error) {
+	metadata, metaErr := envelope.Record(ctx, "system:internal", id)
+	if metaErr != nil {
+		return api.Hold{}, metaErr
+	}
+	ctx = envelope.With(ctx, metadata)
 	tx, err := w.Store.Pool.Begin(ctx)
 	if err != nil {
 		return api.Hold{}, err
@@ -172,6 +184,11 @@ func (w Workflow) Commit(ctx context.Context, tenant, id string) (api.Hold, erro
 	return holdView(state), tx.Commit(ctx)
 }
 func (w Workflow) Close(ctx context.Context, tenant, id string, line api.Line) error {
+	metadata, metaErr := envelope.Record(ctx, "system:internal", id)
+	if metaErr != nil {
+		return metaErr
+	}
+	ctx = envelope.With(ctx, metadata)
 	tx, err := w.Store.Pool.Begin(ctx)
 	if err != nil {
 		return err

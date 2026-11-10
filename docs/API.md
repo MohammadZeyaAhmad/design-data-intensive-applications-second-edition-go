@@ -2,7 +2,7 @@
 
 Default base URL: `http://127.0.0.1:18081`. Use `make demo` and `make verify-live` without copying credentials into commands or logs. The generated `.env` contains development keys for `acme` and `globex`.
 
-Authenticated requests require `Authorization: Bearer <tenant-key>`. Identity comes from the credential, never `X-Tenant-ID`. All successful command responses include `Idempotent-Replay: true|false`. All responses use `Cache-Control: no-store`.
+Authenticated requests require `Authorization: Bearer <tenant-key>`. Identity comes from the credential, never `X-Tenant-ID`. Authenticated responses include generated `X-Request-ID` and bounded `X-Correlation-ID` headers; [provenance contracts](OPERATIONS.md) describe accepted inputs and worker lineage. All successful command responses include `Idempotent-Replay: true|false`. All responses use `Cache-Control: no-store`.
 
 | Method and path | Input | Result |
 |---|---|---|

@@ -10,7 +10,7 @@ Read the authoritative order and checkout status. Only source confirmation autho
 
 Read `GET /v1/shipments/{id}` for status, `dispatched`, `attempts` and the sanitized `last_error`, then inspect its immutable event history and Inventory reservation IDs. A retry code means the last attempt did not establish a validated receipt; it does not prove stock stayed in the warehouse. Inventory may already show `shipped` while Fulfillment is behind. Restart the worker and allow the 30-second lease to expire after an ungraceful stop. It retries the same allocation and recovers the saved physical result.
 
-Do not reset `dispatched`, generate replacement allocation IDs, force a terminal status, reverse shipped stock or refund a confirmed checkout to clear this condition. Persistent contradictory/missing allocation state needs a reviewed repair workflow; a general repair command is not implemented. Keep source facts and operation IDs for diagnosis. Shipping and returns are different business actions.
+Do not reset `dispatched`, generate replacement allocation IDs, force a terminal status, reverse shipped stock or refund a confirmed checkout to clear this condition. For ordinary dependency recovery, use [audited scheduling controls](workflow-control.md) to pause/resume/retry the original progress. Persistent contradictory/missing allocation state needs a reviewed repair workflow; a general repair command is not implemented. Keep source facts and operation IDs for diagnosis. Shipping and returns are different business actions.
 
 ## Warehouse projection is stale
 

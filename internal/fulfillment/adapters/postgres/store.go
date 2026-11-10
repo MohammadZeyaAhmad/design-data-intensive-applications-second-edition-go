@@ -4,14 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sort"
+
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/envelope"
 	api "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/fulfillment"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/fulfillment/domain"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/fulfillment/ports"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/cmdtx"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/commands"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/identity"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"sort"
 )
 
 var ErrLostLease = errors.New("shipment lease superseded or expired")
@@ -32,12 +35,21 @@ func event(ctx context.Context, tx pgx.Tx, state domain.State, action string) er
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO fulfillment.events(tenant_id,shipment_id,version,action,state) VALUES($1,$2::uuid,$3,$4,$5)`, state.TenantID, state.ID, state.Version, action, body)
+	cause := envelope.From(ctx).CausationID
+	if cause == "" {
+		cause = state.ID
+	}
+	m, err := envelope.Record(ctx, "system:internal", cause)
+	if err != nil {
+		return err
+	}
+	meta, _ := json.Marshal(m)
+	_, err = tx.Exec(ctx, `INSERT INTO fulfillment.events(tenant_id,shipment_id,version,action,state,metadata) VALUES($1,$2::uuid,$3,$4,$5,$6)`, state.TenantID, state.ID, state.Version, action, body, meta)
 	return err
 }
 
 func (s *Store) Submit(ctx context.Context, r api.Request) error {
-	if !domain.ValidID(r.ID) || !domain.ValidID(r.OrderID) || len(r.Allocations) < 1 || len(r.Allocations) > 100 {
+	if !r.Metadata.Valid() || !domain.ValidID(r.ID) || !domain.ValidID(r.OrderID) || len(r.Allocations) < 1 || len(r.Allocations) > 100 {
 		return domain.ErrInvalid
 	}
 	groups := map[string][]domain.Allocation{}
@@ -88,12 +100,17 @@ func (s *Store) Submit(ctx context.Context, r api.Request) error {
 		}
 		return err
 	}
+	ctx, err = envelope.Worker(ctx, r.Metadata, "fulfillment", r.ID)
+	if err != nil {
+		return err
+	}
+	meta, _ := json.Marshal(r.Metadata)
 	for _, state := range states {
 		data, err := json.Marshal(state)
 		if err != nil {
 			return err
 		}
-		if _, err = tx.Exec(ctx, `INSERT INTO fulfillment.shipments(tenant_id,id,order_id,checkout_id,warehouse_id,state) VALUES($1,$2::uuid,$3::uuid,$4::uuid,$5,$6)`, state.TenantID, state.ID, state.OrderID, state.CheckoutID, state.WarehouseID, data); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO fulfillment.shipments(tenant_id,id,order_id,checkout_id,warehouse_id,state,metadata) VALUES($1,$2::uuid,$3::uuid,$4::uuid,$5,$6,$7)`, state.TenantID, state.ID, state.OrderID, state.CheckoutID, state.WarehouseID, data, meta); err != nil {
 			return err
 		}
 		for _, a := range state.Lines {
@@ -129,11 +146,21 @@ func (s *Store) Execute(ctx context.Context, r commands.Request, id string, expe
 			return domain.State{}, err
 		}
 		state := shipment.Snapshot()
+		cause, err := identity.NewID()
+		if err != nil {
+			return domain.State{}, err
+		}
+		m, err := envelope.Record(ctx, "system:internal", cause)
+		if err != nil {
+			return domain.State{}, err
+		}
+		ctx = envelope.With(ctx, m)
+		meta, _ := json.Marshal(m)
 		body, err = json.Marshal(state)
 		if err != nil {
 			return domain.State{}, err
 		}
-		if _, err = tx.Exec(ctx, `UPDATE fulfillment.shipments SET state=$3,next_attempt_at=now() WHERE tenant_id=$1 AND id=$2::uuid`, r.Tenant, id, body); err != nil {
+		if _, err = tx.Exec(ctx, `UPDATE fulfillment.shipments SET state=$3,dispatch_metadata=CASE WHEN $4='dispatch' THEN $5::jsonb ELSE dispatch_metadata END,next_attempt_at=now() WHERE tenant_id=$1 AND id=$2::uuid`, r.Tenant, id, body, action, meta); err != nil {
 			return domain.State{}, err
 		}
 		return state, event(ctx, tx, state, action)
@@ -142,7 +169,7 @@ func (s *Store) Execute(ctx context.Context, r commands.Request, id string, expe
 func scanView(row pgx.Row) (ports.View, error) {
 	var v ports.View
 	var body []byte
-	err := row.Scan(&body, &v.Attempts, &v.LastError)
+	err := row.Scan(&body, &v.Attempts, &v.LastError, &v.Metadata, &v.DispatchMetadata, &v.Paused, &v.ControlVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return v, domain.ErrNotFound
 	}
@@ -157,10 +184,10 @@ func scanView(row pgx.Row) (ports.View, error) {
 	return v, nil
 }
 func (s *Store) Get(ctx context.Context, tenant, id string) (ports.View, error) {
-	return scanView(s.Pool.QueryRow(ctx, `SELECT state,attempts,coalesce(last_error,'') FROM fulfillment.shipments WHERE tenant_id=$1 AND id=$2::uuid`, tenant, id))
+	return scanView(s.Pool.QueryRow(ctx, `SELECT state,attempts,coalesce(last_error,''),metadata,dispatch_metadata,paused,control_version FROM fulfillment.shipments WHERE tenant_id=$1 AND id=$2::uuid`, tenant, id))
 }
 func (s *Store) ForOrder(ctx context.Context, tenant, id string) ([]ports.View, error) {
-	rows, err := s.Pool.Query(ctx, `SELECT state,attempts,coalesce(last_error,'') FROM fulfillment.shipments WHERE tenant_id=$1 AND order_id=$2::uuid ORDER BY warehouse_id,id`, tenant, id)
+	rows, err := s.Pool.Query(ctx, `SELECT state,attempts,coalesce(last_error,''),metadata,dispatch_metadata,paused,control_version FROM fulfillment.shipments WHERE tenant_id=$1 AND order_id=$2::uuid ORDER BY warehouse_id,id`, tenant, id)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +206,7 @@ func (s *Store) History(ctx context.Context, tenant, id string) ([]ports.Event, 
 	if _, err := s.Get(ctx, tenant, id); err != nil {
 		return nil, err
 	}
-	rows, err := s.Pool.Query(ctx, `SELECT version,action,state FROM fulfillment.events WHERE tenant_id=$1 AND shipment_id=$2::uuid ORDER BY version`, tenant, id)
+	rows, err := s.Pool.Query(ctx, `SELECT version,action,state,metadata FROM fulfillment.events WHERE tenant_id=$1 AND shipment_id=$2::uuid ORDER BY version`, tenant, id)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +215,7 @@ func (s *Store) History(ctx context.Context, tenant, id string) ([]ports.Event, 
 	for rows.Next() {
 		var e ports.Event
 		var body []byte
-		if err = rows.Scan(&e.Version, &e.Action, &body); err != nil {
+		if err = rows.Scan(&e.Version, &e.Action, &body, &e.Metadata); err != nil {
 			return nil, err
 		}
 		if err = json.Unmarshal(body, &e.State); err != nil {
@@ -206,7 +233,8 @@ func (s *Store) Claim(ctx context.Context) (ports.Job, bool, error) {
 	}
 	defer cmdtx.Rollback(tx)
 	var body []byte
-	err = tx.QueryRow(ctx, `SELECT state FROM fulfillment.shipments WHERE status='dispatching' AND next_attempt_at<=clock_timestamp() AND lease_until<=clock_timestamp() ORDER BY next_attempt_at,tenant_id,id FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&body)
+	var metadata envelope.Metadata
+	err = tx.QueryRow(ctx, `SELECT state,CASE WHEN dispatch_metadata->>'version'='1' THEN dispatch_metadata ELSE metadata END FROM fulfillment.shipments WHERE NOT paused AND status='dispatching' AND next_attempt_at<=clock_timestamp() AND lease_until<=clock_timestamp() ORDER BY next_attempt_at,tenant_id,id FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&body, &metadata)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ports.Job{}, false, nil
 	}
@@ -217,7 +245,7 @@ func (s *Store) Claim(ctx context.Context) (ports.Job, bool, error) {
 	if err != nil {
 		return ports.Job{}, false, err
 	}
-	j := ports.Job{State: shipment.Snapshot()}
+	j := ports.Job{State: shipment.Snapshot(), Metadata: metadata}
 	err = tx.QueryRow(ctx, `UPDATE fulfillment.shipments SET lease_token=lease_token+1,lease_until=clock_timestamp()+interval '30 seconds' WHERE tenant_id=$1 AND id=$2::uuid RETURNING lease_token`, j.State.TenantID, j.State.ID).Scan(&j.Token)
 	if err != nil {
 		return ports.Job{}, false, err
@@ -259,7 +287,7 @@ func (s *Store) Save(ctx context.Context, j ports.Job, retry bool) error {
 		}
 	}
 	// Evaluate the lease after acquiring the row lock, at the final write.
-	tag, err := tx.Exec(ctx, `UPDATE fulfillment.shipments SET state=$4,lease_until='-infinity',next_attempt_at=clock_timestamp()+($5*interval '1 millisecond'),attempts=attempts+$6,last_error=$7 WHERE tenant_id=$1 AND id=$2::uuid AND lease_token=$3 AND lease_until>clock_timestamp()`, j.State.TenantID, j.State.ID, j.Token, body, delay, attempts, code)
+	tag, err := tx.Exec(ctx, `UPDATE fulfillment.shipments SET state=$4,lease_until='-infinity',next_attempt_at=clock_timestamp()+($5*interval '1 millisecond'),attempts=attempts+$6,last_error=$7 WHERE tenant_id=$1 AND id=$2::uuid AND NOT paused AND lease_token=$3 AND lease_until>clock_timestamp()`, j.State.TenantID, j.State.ID, j.Token, body, delay, attempts, code)
 	if err != nil {
 		return err
 	}

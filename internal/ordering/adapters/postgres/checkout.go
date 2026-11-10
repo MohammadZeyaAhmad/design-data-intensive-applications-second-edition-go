@@ -4,13 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
+
 	cat "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/catalog"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/envelope"
 	api "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/ordering"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/ordering/domain"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/ordering/ports"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/identity"
 	"github.com/jackc/pgx/v5"
-	"time"
 )
 
 type Checkout struct{ Store *Store }
@@ -126,7 +128,7 @@ func enqueueCheckout(ctx context.Context, tx pgx.Tx, tenant, method string, stat
 	if len(method) < 1 || len(method) > 128 {
 		return domain.ErrInvalidInput
 	}
-	request := api.Requested{ID: state.CheckoutID, TenantID: tenant, OrderID: state.ID, Quote: quoteView(state), PaymentMethod: method}
+	request := api.Requested{Metadata: envelope.From(ctx), ID: state.CheckoutID, TenantID: tenant, OrderID: state.ID, Quote: quoteView(state), PaymentMethod: method}
 	body, err := json.Marshal(request)
 	if err != nil {
 		return err

@@ -3,7 +3,9 @@ package ordering
 import (
 	"context"
 	"errors"
+
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/catalog"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/envelope"
 )
 
 var ErrConflict = errors.New("order changed or checkout transition not allowed")
@@ -11,11 +13,12 @@ var ErrInvalid = errors.New("quote or checkout input is invalid")
 var ErrNotFound = errors.New("order not found")
 
 type Requested struct {
-	ID            string        `json:"id"`
-	TenantID      string        `json:"tenant_id"`
-	OrderID       string        `json:"order_id"`
-	Quote         catalog.Quote `json:"quote"`
-	PaymentMethod string        `json:"payment_method"`
+	Metadata      envelope.Metadata `json:"metadata,omitzero"`
+	ID            string            `json:"id"`
+	TenantID      string            `json:"tenant_id"`
+	OrderID       string            `json:"order_id"`
+	Quote         catalog.Quote     `json:"quote"`
+	PaymentMethod string            `json:"payment_method"`
 }
 type View struct {
 	ID            string        `json:"id"`

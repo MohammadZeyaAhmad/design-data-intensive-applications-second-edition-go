@@ -2,7 +2,10 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/envelope"
 	api "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/payments"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/payments/domain"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/payments/ports"
@@ -27,7 +30,8 @@ func (s *Service) prepare(ctx context.Context, i api.Intent) (api.Receipt, error
 		return api.Receipt{}, err
 	}
 	defer cmdtx.Rollback(tx)
-	if _, err = tx.Exec(ctx, `INSERT INTO payments.intents(tenant_id,id,amount_minor,currency,method) VALUES($1,$2::uuid,$3,$4,$5) ON CONFLICT DO NOTHING`, i.TenantID, i.ID, i.AmountMinor, i.Currency, i.Method); err != nil {
+	meta, _ := json.Marshal(i.Metadata)
+	if _, err = tx.Exec(ctx, `INSERT INTO payments.intents(tenant_id,id,amount_minor,currency,method,metadata) VALUES($1,$2::uuid,$3,$4,$5,$6) ON CONFLICT DO NOTHING`, i.TenantID, i.ID, i.AmountMinor, i.Currency, i.Method, meta); err != nil {
 		return api.Receipt{}, err
 	}
 	var r api.Receipt
@@ -50,6 +54,12 @@ func (s *Service) Get(ctx context.Context, tenant, id string) (api.Receipt, erro
 	return r, err
 }
 func (s *Service) Capture(ctx context.Context, i api.Intent) (api.Receipt, error) {
+	var stampErr error
+	i, stampErr = stamp(ctx, i)
+	if stampErr != nil {
+		return api.Receipt{}, stampErr
+	}
+	ctx = envelope.With(ctx, i.Metadata)
 	r, err := s.prepare(ctx, i)
 	if err != nil {
 		return r, err
@@ -67,6 +77,12 @@ func (s *Service) Capture(ctx context.Context, i api.Intent) (api.Receipt, error
 	return s.apply(ctx, i, r)
 }
 func (s *Service) Close(ctx context.Context, i api.Intent) (api.Receipt, error) {
+	var stampErr error
+	i, stampErr = stamp(ctx, i)
+	if stampErr != nil {
+		return api.Receipt{}, stampErr
+	}
+	ctx = envelope.With(ctx, i.Metadata)
 	r, err := s.prepare(ctx, i)
 	if err != nil {
 		return r, err
@@ -121,6 +137,23 @@ func (s *Service) apply(ctx context.Context, i api.Intent, r api.Receipt) (api.R
 	return r, tx.Commit(ctx)
 }
 func post(ctx context.Context, tx pgx.Tx, i api.Intent, kind, debit, credit string) error {
-	_, err := tx.Exec(ctx, `INSERT INTO payments.journal(tenant_id,payment_id,kind,currency,amount_minor,debit_account,credit_account) VALUES($1,$2::uuid,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING`, i.TenantID, i.ID, kind, i.Currency, i.AmountMinor, debit, credit)
+	m, err := envelope.Record(ctx, "system:internal", i.ID)
+	if err != nil {
+		return err
+	}
+	meta, _ := json.Marshal(m)
+	_, err = tx.Exec(ctx, `INSERT INTO payments.journal(tenant_id,payment_id,kind,currency,amount_minor,debit_account,credit_account,metadata) VALUES($1,$2::uuid,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING`, i.TenantID, i.ID, kind, i.Currency, i.AmountMinor, debit, credit, meta)
 	return err
+}
+
+func stamp(ctx context.Context, i api.Intent) (api.Intent, error) {
+	if !i.Metadata.Valid() {
+		return i, envelope.ErrInvalid
+	}
+	if envelope.From(ctx).Version == 0 {
+		ctx = envelope.With(ctx, i.Metadata)
+	}
+	m, err := envelope.Record(ctx, "system:internal", i.ID)
+	i.Metadata = m
+	return i, err
 }

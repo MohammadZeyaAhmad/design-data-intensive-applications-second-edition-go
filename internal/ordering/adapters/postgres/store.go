@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/envelope"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/ordering/domain"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/ordering/ports"
 	"github.com/jackc/pgx/v5"
@@ -91,19 +92,28 @@ func (s *Store) ExecuteAt(ctx context.Context, r ports.Request, id string, expec
 	if len(events) < 1 || len(events) > 64 {
 		return domain.State{}, false, domain.ErrInvalidEvent
 	}
+	metadata, err := envelope.Record(ctx, "system:internal", commandID)
+	if err != nil {
+		return domain.State{}, false, err
+	}
+	metaBody, _ := json.Marshal(metadata)
+	var lastEventID string
 	for _, event := range events {
 		if err = order.Apply(event); err != nil {
 			return domain.State{}, false, err
 		}
-		if event.Type == domain.OrderConfirmed {
-			if err = enqueueFulfillment(ctx, tx, r.Tenant, id, event); err != nil {
-				return domain.State{}, false, err
-			}
-		}
 		var eventID string
-		err = tx.QueryRow(ctx, `INSERT INTO ordering.events (tenant_id,order_id,version,command_id,event_type,schema_version,payload) VALUES ($1,$2::uuid,$3,$4::uuid,$5,$6,$7) RETURNING event_id::text`, r.Tenant, id, event.Version, commandID, event.Type, event.SchemaVersion, []byte(event.Data)).Scan(&eventID)
+		err = tx.QueryRow(ctx, `INSERT INTO ordering.events (tenant_id,order_id,version,command_id,event_type,schema_version,payload,metadata) VALUES ($1,$2::uuid,$3,$4::uuid,$5,$6,$7,$8) RETURNING event_id::text`, r.Tenant, id, event.Version, commandID, event.Type, event.SchemaVersion, []byte(event.Data), metaBody).Scan(&eventID)
 		if err != nil {
 			return domain.State{}, false, err
+		}
+		lastEventID = eventID
+		nextMeta := metadata
+		nextMeta.CausationID = eventID
+		if event.Type == domain.OrderConfirmed {
+			if err = enqueueFulfillment(envelope.With(ctx, nextMeta), tx, r.Tenant, id, event); err != nil {
+				return domain.State{}, false, err
+			}
 		}
 		if _, err = tx.Exec(ctx, `INSERT INTO ordering.outbox (tenant_id,order_id,version,event_id) VALUES ($1,$2::uuid,$3,$4::uuid)`, r.Tenant, id, event.Version, eventID); err != nil {
 			return domain.State{}, false, err
@@ -111,7 +121,8 @@ func (s *Store) ExecuteAt(ctx context.Context, r ports.Request, id string, expec
 	}
 	state := order.Snapshot()
 	if state.Status == domain.CheckoutPending && expected+1 == state.Version && len(events) == 1 && events[0].Type == domain.CheckoutStarted {
-		if err = enqueueCheckout(ctx, tx, r.Tenant, r.CheckoutMethod, state); err != nil {
+		metadata.CausationID = lastEventID
+		if err = enqueueCheckout(envelope.With(ctx, metadata), tx, r.Tenant, r.CheckoutMethod, state); err != nil {
 			return domain.State{}, false, err
 		}
 	}
@@ -254,14 +265,14 @@ func (s *Store) Events(ctx context.Context, tenant, id string, after int64, limi
 	if !exists {
 		return page, domain.ErrNotFound
 	}
-	rows, err := s.Pool.Query(ctx, `SELECT event_id::text,version,event_type,schema_version,payload,recorded_at FROM ordering.events WHERE tenant_id=$1 AND order_id=$2::uuid AND version>$3 ORDER BY version LIMIT $4`, tenant, id, after, limit)
+	rows, err := s.Pool.Query(ctx, `SELECT event_id::text,version,event_type,schema_version,payload,recorded_at,metadata FROM ordering.events WHERE tenant_id=$1 AND order_id=$2::uuid AND version>$3 ORDER BY version LIMIT $4`, tenant, id, after, limit)
 	if err != nil {
 		return page, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var e ports.EventRecord
-		if err = rows.Scan(&e.ID, &e.Version, &e.Type, &e.SchemaVersion, &e.Data, &e.RecordedAt); err != nil {
+		if err = rows.Scan(&e.ID, &e.Version, &e.Type, &e.SchemaVersion, &e.Data, &e.RecordedAt, &e.Metadata); err != nil {
 			return page, err
 		}
 		page.Events = append(page.Events, e)

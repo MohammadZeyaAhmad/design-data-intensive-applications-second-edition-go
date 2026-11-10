@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/envelope"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/domain"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/features/changereservation"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/ports"
@@ -129,12 +130,17 @@ func (s *Store) ExpireOne(ctx context.Context) (bool, error) {
 	}
 	defer rollback(tx)
 	var tenant, id string
-	err = tx.QueryRow(ctx, `SELECT tenant_id,id::text FROM inventory.reservations WHERE status='active' AND expires_at<=clock_timestamp() ORDER BY expires_at,tenant_id,id FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&tenant, &id)
+	var metadata envelope.Metadata
+	err = tx.QueryRow(ctx, `SELECT tenant_id,id::text,metadata FROM inventory.reservations WHERE status='active' AND expires_at<=clock_timestamp() ORDER BY expires_at,tenant_id,id FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&tenant, &id, &metadata)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
 	if err != nil {
 		return false, err
+	}
+	ctx, err = envelope.Worker(ctx, metadata, "inventory-expiry", id)
+	if err != nil {
+		return true, err
 	}
 	_, err = changereservation.Apply(ctx, &transaction{tx: tx, tenant: tenant}, changereservation.Command{ID: id, Target: domain.ReservationExpired})
 	if errors.Is(err, domain.ErrReservationNotDue) {

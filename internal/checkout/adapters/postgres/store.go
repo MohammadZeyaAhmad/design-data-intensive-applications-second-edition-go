@@ -4,13 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
+
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/envelope"
 	orders "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/ordering"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/checkout/domain"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/checkout/ports"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/cmdtx"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"reflect"
 )
 
 var ErrNotFound = errors.New("checkout not found")
@@ -22,12 +24,16 @@ type Store struct{ Pool *pgxpool.Pool }
 var _ ports.Store = (*Store)(nil)
 
 func (s *Store) Submit(ctx context.Context, r orders.Requested) error {
+	if !r.Metadata.Valid() {
+		return envelope.ErrInvalid
+	}
+	meta, _ := json.Marshal(r.Metadata)
 	body, err := json.Marshal(r)
 	if err != nil {
 		return err
 	}
 	initial, _ := json.Marshal(domain.State{Stage: domain.Reserving})
-	tag, err := s.Pool.Exec(ctx, `INSERT INTO checkout.jobs(tenant_id,id,order_id,request,state) VALUES($1,$2::uuid,$3::uuid,$4,$5) ON CONFLICT DO NOTHING`, r.TenantID, r.ID, r.OrderID, body, initial)
+	tag, err := s.Pool.Exec(ctx, `INSERT INTO checkout.jobs(tenant_id,id,order_id,request,state,metadata) VALUES($1,$2::uuid,$3::uuid,$4,$5,$6) ON CONFLICT DO NOTHING`, r.TenantID, r.ID, r.OrderID, body, initial, meta)
 	if err != nil {
 		return err
 	}
@@ -55,7 +61,7 @@ func (s *Store) Claim(ctx context.Context) (ports.Job, bool, error) {
 	defer cmdtx.Rollback(tx)
 	var job ports.Job
 	var request, state []byte
-	err = tx.QueryRow(ctx, `SELECT request,state,cancel_requested FROM checkout.jobs WHERE status NOT IN('confirmed','failed','cancelled') AND next_attempt_at<=clock_timestamp() AND lease_until<=clock_timestamp() ORDER BY next_attempt_at,tenant_id,id FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&request, &state, &job.CancelRequested)
+	err = tx.QueryRow(ctx, `SELECT request,state,cancel_requested,CASE WHEN cancel_requested AND cancel_metadata->>'version'='1' THEN cancel_metadata ELSE metadata END FROM checkout.jobs WHERE NOT paused AND status NOT IN('confirmed','failed','cancelled') AND next_attempt_at<=clock_timestamp() AND lease_until<=clock_timestamp() ORDER BY next_attempt_at,tenant_id,id FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&request, &state, &job.CancelRequested, &job.Metadata)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return job, false, nil
 	}
@@ -83,7 +89,7 @@ func (s *Store) Save(ctx context.Context, j ports.Job, state domain.State, retry
 	if retry {
 		delay = 500
 	}
-	tag, err := s.Pool.Exec(ctx, `UPDATE checkout.jobs SET state=$4,status=$5,lease_until='-infinity',next_attempt_at=clock_timestamp()+($6*interval '1 millisecond'),attempts=attempts+$7,last_error=$8,updated_at=now() WHERE tenant_id=$1 AND id=$2::uuid AND lease_token=$3 AND lease_until>clock_timestamp()`, j.Request.TenantID, j.Request.ID, j.Token, body, state.Stage, delay, boolInt(retry), errorCode(retry))
+	tag, err := s.Pool.Exec(ctx, `UPDATE checkout.jobs SET state=$4,status=$5,lease_until='-infinity',next_attempt_at=clock_timestamp()+($6*interval '1 millisecond'),attempts=attempts+$7,last_error=$8,updated_at=now() WHERE tenant_id=$1 AND id=$2::uuid AND NOT paused AND lease_token=$3 AND lease_until>clock_timestamp()`, j.Request.TenantID, j.Request.ID, j.Token, body, state.Stage, delay, boolInt(retry), errorCode(retry))
 	if err != nil {
 		return err
 	}
@@ -107,7 +113,7 @@ func errorCode(b bool) any {
 func (s *Store) Get(ctx context.Context, tenant, id string) (ports.View, error) {
 	var v ports.View
 	var body, request []byte
-	err := s.Pool.QueryRow(ctx, `SELECT id::text,order_id::text,status,state,request,attempts,cancel_requested,updated_at FROM checkout.jobs WHERE tenant_id=$1 AND id=$2::uuid`, tenant, id).Scan(&v.ID, &v.OrderID, &v.Status, &body, &request, &v.Attempts, &v.CancelRequested, &v.UpdatedAt)
+	err := s.Pool.QueryRow(ctx, `SELECT id::text,order_id::text,status,state,request,attempts,cancel_requested,updated_at,metadata,cancel_metadata,paused,control_version FROM checkout.jobs WHERE tenant_id=$1 AND id=$2::uuid`, tenant, id).Scan(&v.ID, &v.OrderID, &v.Status, &body, &request, &v.Attempts, &v.CancelRequested, &v.UpdatedAt, &v.Metadata, &v.CancellationMetadata, &v.Paused, &v.ControlVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return v, ErrNotFound
 	}
@@ -128,7 +134,12 @@ func (s *Store) Get(ctx context.Context, tenant, id string) (ports.View, error) 
 	return v, nil
 }
 func (s *Store) Cancel(ctx context.Context, tenant, id string) error {
-	tag, err := s.Pool.Exec(ctx, `UPDATE checkout.jobs SET cancel_requested=true,next_attempt_at=now() WHERE tenant_id=$1 AND id=$2::uuid AND status NOT IN('confirmed','failed','cancelled')`, tenant, id)
+	m, err := envelope.Record(ctx, "system:internal", id)
+	if err != nil {
+		return err
+	}
+	meta, _ := json.Marshal(m)
+	tag, err := s.Pool.Exec(ctx, `UPDATE checkout.jobs SET cancel_requested=true,cancel_metadata=$3,next_attempt_at=now() WHERE tenant_id=$1 AND id=$2::uuid AND NOT cancel_requested AND status NOT IN('confirmed','failed','cancelled')`, tenant, id, meta)
 	if err != nil {
 		return err
 	}
@@ -139,7 +150,7 @@ func (s *Store) Cancel(ctx context.Context, tenant, id string) error {
 	if err != nil {
 		return err
 	}
-	if v.Status == domain.Cancelled {
+	if v.Status == domain.Cancelled || v.CancelRequested {
 		return nil
 	}
 	return ErrTerminal

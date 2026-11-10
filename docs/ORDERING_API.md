@@ -21,7 +21,7 @@ Request identity is scoped by tenant and operation. The hash includes typed comm
 
 `ETag` reports the order version. Use the required JSON `expected_version` field for mutations; `If-Match` is rejected explicitly rather than silently ignored. Authoritative reads return `X-Consistency: authoritative`. Projection reads return `X-Consistency: eventual` and never authorize command decisions.
 
-History returns `events` and `next_after_version`. Each record includes an immutable event UUID, stream version, type, payload schema version, data and recorded timestamp. Request the next page using the returned version; stop when `events` is empty. Pagination is within one tenant/order stream and may observe later appends across pages. Timestamps and UUIDs are not global commit-order cursors.
+History returns `events` and `next_after_version`. Each record includes an immutable event UUID, stream version, type, payload schema version, data, recorded timestamp and a separate `metadata` envelope. Metadata carries actor/correlation/cause/origin-request; old facts explicitly report version 0. Reducers and snapshots retain their original domain meaning. See [provenance](OPERATIONS.md). Request the next page using the returned version; stop when `events` is empty. Pagination is within one tenant/order stream and may observe later appends across pages. Timestamps and UUIDs are not global commit-order cursors.
 
 ## Operator functions
 

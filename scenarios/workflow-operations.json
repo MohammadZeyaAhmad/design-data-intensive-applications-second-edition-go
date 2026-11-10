@@ -1,0 +1,8 @@
+{
+  "id": "workflow-operations",
+  "status": "verified",
+  "work_packages": ["APP-04", "APP-07", "APP-08", "C09-04", "C13-05"],
+  "commands": ["make verify-operations", "make integration"],
+  "assertions": ["authenticated actor and server request identity cannot be supplied by callers", "correlation and initiating request survive asynchronous work and response loss", "legacy provenance remains explicitly unknown", "metadata cannot grant operator authority", "pause survives process restart", "live leases block controls and expired tokens cannot checkpoint", "operator races have one version winner", "duplicate controls return one audit receipt", "audit insertion failure rolls back scheduling and request identity", "resume reconciles original payment and allocation IDs", "control history uses a resource-local version cursor", "first cancellation and dispatch provenance remain immutable", "hold deadlines continue while checkout is paused and resumption compensates expiry"],
+  "evidence": ["tests/integration/operations_test.go", "contracts/envelope/metadata_test.go", "internal/platform/auth/tenant_test.go", "cmd/guide/operations.go"]
+}

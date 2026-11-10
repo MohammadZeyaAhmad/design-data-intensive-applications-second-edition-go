@@ -359,6 +359,7 @@
     "scenarios/checkout-payments.json",
     "scenarios/inventory-lifecycle.json",
     "scenarios/ordering-events.json",
-    "scenarios/warehouse-fulfillment.json"
+    "scenarios/warehouse-fulfillment.json",
+    "scenarios/workflow-operations.json"
   ]
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/envelope"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/ordering/domain"
 )
 
@@ -32,7 +33,8 @@ func NewRequest(tenant, operation, key string, payload any) (Request, error) {
 }
 
 type EventRecord struct {
-	ID string `json:"event_id"`
+	Metadata envelope.Metadata `json:"metadata"`
+	ID       string            `json:"event_id"`
 	domain.Event
 	RecordedAt time.Time `json:"recorded_at"`
 }

@@ -4,16 +4,19 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/json"
 	"errors"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/envelope"
 	api "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/payments"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/payments/domain"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/cmdtx"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/httpx"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"net/http"
-	"strings"
-	"time"
 )
 
 type Server struct {
@@ -50,7 +53,7 @@ func (s Server) operation(w http.ResponseWriter, r *http.Request) {
 	if !httpx.Decode(w, r, &intent) {
 		return
 	}
-	if intent.ID != r.PathValue("id") || !domain.Valid(intent.TenantID, intent.ID, intent.AmountMinor, intent.Currency, intent.Method) {
+	if !intent.Metadata.Valid() || intent.ID != r.PathValue("id") || !domain.Valid(intent.TenantID, intent.ID, intent.AmountMinor, intent.Currency, intent.Method) {
 		httpx.Problem(w, 400, "invalid_input")
 		return
 	}
@@ -97,13 +100,19 @@ func (s Server) operation(w http.ResponseWriter, r *http.Request) {
 // Capture and close serialize on one durable intent. Closing an unseen intent
 // creates a tombstone: a delayed capture cannot create a new charge afterward.
 func (s Server) Operate(ctx context.Context, i api.Intent, kind string) (api.Receipt, bool, error) {
+	var metadataErr error
+	ctx, metadataErr = envelope.Worker(ctx, i.Metadata, "payment-provider", i.ID)
+	if metadataErr != nil {
+		return api.Receipt{}, false, metadataErr
+	}
+	meta, _ := json.Marshal(envelope.From(ctx))
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
 		return api.Receipt{}, false, err
 	}
 	defer cmdtx.Rollback(tx)
 	if kind != "lookup" {
-		if _, err = tx.Exec(ctx, `INSERT INTO provider.operations(tenant_id,id,amount_minor,currency,method) VALUES($1,$2::uuid,$3,$4,$5) ON CONFLICT DO NOTHING`, i.TenantID, i.ID, i.AmountMinor, i.Currency, i.Method); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO provider.operations(tenant_id,id,amount_minor,currency,method,metadata) VALUES($1,$2::uuid,$3,$4,$5,$6) ON CONFLICT DO NOTHING`, i.TenantID, i.ID, i.AmountMinor, i.Currency, i.Method, meta); err != nil {
 			return api.Receipt{}, false, err
 		}
 	}

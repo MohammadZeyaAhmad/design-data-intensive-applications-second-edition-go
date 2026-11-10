@@ -1,5 +1,15 @@
 # Validation
 
+## Fifth increment: provenance and audited workflow controls
+
+Recorded **10 November 2026** with the same Go 1.27.3/PostgreSQL 18.6 baseline. `make verify` passed all existing and new live/restart scenarios. The current PostgreSQL suite has **55 integration tests**, including thirteen new lineage/control tests, with race detection and isolated fresh databases. Domain/architecture/HTTP checks and vet also pass.
+
+New database evidence covers correlation and initiating request across checkout, provider response loss, confirmation, shipment dispatch and physical handoff; idempotent order replay preserving accepted provenance; legacy unknown metadata and malformed-envelope rollback; paused-work exclusion; active-lease rejection; effect completion after pause with stale-checkpoint rejection; concurrent operator version races; concurrent duplicate controls sharing one audit identity; audit-write failure rolling back schedule/request state; recovery of an unknown shipment effect using original IDs; operator scope independent of diagnostic actor metadata; immutable first cancellation/dispatch/origin provenance; and continued hold expiry during pause with expiry-worker lineage and compensating refund after resume. HTTP unit tests reject actor/cause/request-ID spoofing and malformed correlation inputs.
+
+`make verify-operations` exercised the actual local operator CLI and authenticated HTTP APIs. It stopped the provider, paused a retrying checkout, restored the provider, restarted API/worker, verified that paused progress and accepted lineage remained unchanged, replayed the same pause receipt, resumed, and recorded one capture after the simulator's lost response. Resource-local audit pagination returned the two original controls with the local operator actor. Ordering and journal metadata retained the accepted request/correlation; warehouse dispatch followed each persisted dispatch-command branch after pause/resume. The report is in ignored `artifacts/operations.json`.
+
+These controls operate on local scheduling and lease fields only. They do not implement production remote operator authentication, OIDC/RBAC, arbitrary checkpoint/financial repairs, independent reconciliation, broker replay, metrics/distributed tracing or governance. A paused resource may still receive an effect from an expired old worker; the explicit counterexample verifies that the old checkpoint fails and resumption deduplicates that effect. See [contracts](OPERATIONS.md) and [recovery](runbooks/workflow-control.md).
+
 ## Fourth increment: warehouse inventory and durable Fulfillment
 
 Recorded **10 November 2026** using Go 1.27.3 and the same pinned PostgreSQL 18.6 baseline. The current suite has **42 real PostgreSQL integration tests**, with race detection, isolated fresh databases, immutable facts and journals, plus domain/architecture/HTTP checks, vet, all earlier live scenarios and the new shipment/restart scenarios.

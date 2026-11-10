@@ -2,10 +2,12 @@ package runtime
 
 import (
 	"context"
+	"time"
+
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/envelope"
 	orders "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/ordering"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/checkout/features/advance"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/checkout/ports"
-	"time"
 )
 
 type Worker struct {
@@ -18,6 +20,10 @@ func (w Worker) ProcessOne(ctx context.Context) (bool, error) {
 	j, found, err := w.Store.Claim(ctx)
 	if err != nil || !found {
 		return found, err
+	}
+	ctx, err = envelope.Worker(ctx, j.Metadata, "checkout", j.Request.ID)
+	if err != nil {
+		return true, err
 	}
 	next, err := w.Handler.Handle(ctx, j)
 	retry := err != nil

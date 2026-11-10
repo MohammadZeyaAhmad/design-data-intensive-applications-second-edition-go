@@ -29,7 +29,7 @@ jobs:
           go-version: '1.27.3'
           cache: true
       - name: Formatting
-        run: test -z "$(gofmt -l cmd internal migrations tests labs)"
+        run: test -z "$(gofmt -l cmd contracts internal migrations tests labs)"
       - name: Application and lab tests, including race detection
         run: make test
       - name: Real PostgreSQL concurrency and failure tests
@@ -41,7 +41,7 @@ jobs:
       - name: Start disposable API and worker stack
         run: make up
       - name: Live HTTP contention and restart recovery
-        run: make verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-recovery
+        run: make verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery
       - name: Stop disposable stack
         if: always()
         run: |

@@ -2,21 +2,24 @@ package httpapi
 
 import (
 	"errors"
+	"net/http"
+
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/envelope"
 	api "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/payments"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/payments/adapters/postgres"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/auth"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/httpx"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/identity"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"net/http"
 )
 
 type Entry struct {
-	Kind        string `json:"kind"`
-	Currency    string `json:"currency"`
-	AmountMinor int64  `json:"amount_minor"`
-	Debit       string `json:"debit_account"`
-	Credit      string `json:"credit_account"`
+	Metadata    envelope.Metadata `json:"metadata"`
+	Kind        string            `json:"kind"`
+	Currency    string            `json:"currency"`
+	AmountMinor int64             `json:"amount_minor"`
+	Debit       string            `json:"debit_account"`
+	Credit      string            `json:"credit_account"`
 }
 
 func New(store *postgres.Service, pool *pgxpool.Pool, keys map[[32]byte]string) http.Handler {
@@ -42,7 +45,7 @@ func New(store *postgres.Service, pool *pgxpool.Pool, keys map[[32]byte]string) 
 			failure(w, err)
 			return
 		}
-		rows, err := pool.Query(r.Context(), `SELECT kind,currency,amount_minor,debit_account,credit_account FROM payments.journal WHERE tenant_id=$1 AND payment_id=$2::uuid ORDER BY recorded_at,id`, auth.Tenant(r.Context()), r.PathValue("id"))
+		rows, err := pool.Query(r.Context(), `SELECT kind,currency,amount_minor,debit_account,credit_account,metadata FROM payments.journal WHERE tenant_id=$1 AND payment_id=$2::uuid ORDER BY recorded_at,id`, auth.Tenant(r.Context()), r.PathValue("id"))
 		if err != nil {
 			httpx.Problem(w, 500, "journal_failure")
 			return
@@ -51,7 +54,7 @@ func New(store *postgres.Service, pool *pgxpool.Pool, keys map[[32]byte]string) 
 		entries := []Entry{}
 		for rows.Next() {
 			var e Entry
-			if err = rows.Scan(&e.Kind, &e.Currency, &e.AmountMinor, &e.Debit, &e.Credit); err != nil {
+			if err = rows.Scan(&e.Kind, &e.Currency, &e.AmountMinor, &e.Debit, &e.Credit, &e.Metadata); err != nil {
 				httpx.Problem(w, 500, "journal_failure")
 				return
 			}

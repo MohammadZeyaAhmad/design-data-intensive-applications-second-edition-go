@@ -27,8 +27,8 @@ Confirmation writes a Fulfillment request in the same Ordering transaction as th
 | Method/path | Input | Result |
 |---|---|---|
 | `GET /v1/orders/{id}/fulfillment` | Authentication | 200, array of shipment views; initially empty until request delivery |
-| `GET /v1/shipments/{id}` | Authentication | 200, current shipment, checkpoint, retries and sanitized last error; 404 for another tenant |
-| `GET /v1/shipments/{id}/events` | Authentication | Ordered immutable local history, including full states |
+| `GET /v1/shipments/{id}` | Authentication | 200, current shipment, checkpoint, pause/control version, request/dispatch provenance, retries and sanitized last error; 404 for another tenant |
+| `GET /v1/shipments/{id}/events` | Authentication | Ordered immutable local history, including full states and separate provenance envelopes |
 | `POST /v1/shipments/{id}/pick` | `{"expected_version":1}`; `Idempotency-Key` | 200, ready → picking |
 | `POST /v1/shipments/{id}/pack` | `{"expected_version":2}`; `Idempotency-Key` | 200, picking → packed |
 | `POST /v1/shipments/{id}/dispatch` | `{"expected_version":3,"tracking_reference":"TEST-123"}`; `Idempotency-Key` | 202, packed → dispatching; durable worker handoff requested |
@@ -45,5 +45,7 @@ The worker claims a 30-second token lease, commits that claim, and calls the pub
 Fulfillment checks the receipt's identity, SKU, quantity and warehouse before saving its checkpoint. The final write checks the current token and database-clock lease after acquiring the row lock. A lost response stays `dispatching` with a sanitized retry error. A worker dying after Inventory commits retries the same allocation after its lease expires. It cannot checkpoint under an expired or superseded token. A shipment becomes `shipped` only after all allocations have receipts; delivery cannot precede this state.
 
 This is an explicit simulated warehouse handoff with an operator-supplied tracking reference. No real carrier, label purchase, delivery webhook, return, stock transfer, single-SKU split, post-confirmation cancellation or automatic refund after shipping is implemented. Persistent dispatch errors remain visible/retryable; generalized operator repair and production warehouse roles are tracked work. Shipment state is authoritative current state with immutable history, whereas Ordering remains event sourced.
+
+Local operators can inspect, pause, resume and request retries through [audited workflow controls](OPERATIONS.md). A paused shipment accepts versioned warehouse commands while asynchronous handoff waits for resume.
 
 Run `make verify-fulfillment verify-fulfillment-recovery` after `make up`. See [recovery](runbooks/fulfillment-recovery.md) and the [design walkthrough](chapters/ch05/fulfillment.md).

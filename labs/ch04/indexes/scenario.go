@@ -210,6 +210,21 @@ func runLayout(path string, layout Layout, n, rep int) (result Measurement, err 
 		b, _ := json.Marshal(oracle[id])
 		result.LiveJSONBytes += len(b)
 	}
+	// Exercise conflict rollback in the report itself as well as the fault tests.
+	// Run after measurements so the rejected operation is outside timing/counters.
+	a, b := oracle[sortedIDs[0]], oracle[sortedIDs[1]]
+	conflict := b
+	conflict.Tenant, conflict.Warehouse, conflict.SKU = a.Tenant, a.Warehouse, a.SKU
+	if e = d.Put(conflict); !errors.Is(e, ErrConflict) {
+		return result, errors.New("natural identity conflict was accepted")
+	}
+	got, e := d.Get(b.ID)
+	if e != nil || got != b {
+		return result, errors.New("rejected rekey changed its primary row")
+	}
+	if e = check(false); e != nil {
+		return result, e
+	}
 	result.DiskBytes, e = d.DiskBytes()
 	if e != nil {
 		return result, e

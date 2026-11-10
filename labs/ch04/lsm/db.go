@@ -377,7 +377,7 @@ func (d *DB) Scan(start, end []byte, limit int) ([]Pair, error) {
 			return false
 		}
 		if !r.deleted {
-			result = append(result, Pair{clone(r.key), clone(r.value)})
+			result = append(result, Pair{Key: clone(r.key), Value: clone(r.value)})
 		}
 		return len(result) < limit
 	})

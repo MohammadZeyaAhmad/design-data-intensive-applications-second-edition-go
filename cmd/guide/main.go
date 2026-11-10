@@ -33,7 +33,7 @@ func main() {
 }
 func run() error {
 	if len(os.Args) != 2 {
-		return errors.New("usage: guide configure|doctor|wait|demo|demo-orders|demo-checkout|verify-checkout|verify-checkout-recovery|verify-fulfillment|verify-fulfillment-recovery|verify-operations|verify-kafka|verify-temporal|verify-storage|verify-live|verify-lifecycle|verify-orders|verify-recovery|coverage")
+		return errors.New("usage: guide configure|doctor|wait|demo|demo-orders|demo-checkout|verify-checkout|verify-checkout-recovery|verify-fulfillment|verify-fulfillment-recovery|verify-operations|verify-kafka|verify-temporal|verify-storage|verify-btree|verify-live|verify-lifecycle|verify-orders|verify-recovery|coverage")
 	}
 	command := os.Args[1]
 	if command == "configure" {
@@ -42,11 +42,15 @@ func run() error {
 	if command == "coverage" {
 		return coverage()
 	}
-	if command == "verify-storage" {
+	if command == "verify-storage" || command == "verify-btree" {
 		if err := coverage(); err != nil {
 			return err
 		}
-		for _, args := range [][]string{{"test", "-race", "-count=1", "./ch04/..."}, {"run", "./cmd/lab", "lsm", "-output", "../artifacts/storage.json"}} {
+		target, lab, output := "./ch04/...", "lsm", "../artifacts/storage.json"
+		if command == "verify-btree" {
+			target, lab, output = "./ch04/btree", "btree", "../artifacts/btree.json"
+		}
+		for _, args := range [][]string{{"test", "-race", "-count=1", target}, {"run", "./cmd/lab", lab, "-output", output}} {
 			cmd := exec.Command("go", args...)
 			cmd.Dir = "labs"
 			cmd.Stdout = os.Stdout

@@ -34,12 +34,14 @@ verify-orders:
 verify-recovery:
 	go run ./cmd/guide verify-recovery
 ifeq ($(strip $(ID)),)
-verify: test integration coverage-check lab storage-demo verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery
+verify: test integration coverage-check lab storage-demo btree-demo verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery
 else ifeq ($(ID),C04-01)
 verify: verify-storage
+else ifeq ($(ID),C04-02)
+verify: verify-btree
 else
 verify:
-	@echo 'Scoped verification currently supports ID=C04-01; other plan IDs remain future interfaces.' >&2
+	@echo 'Scoped verification currently supports ID=C04-01 and ID=C04-02; other plan IDs remain future interfaces.' >&2
 	@exit 2
 endif
 demo:
@@ -105,3 +107,10 @@ storage-test:
 storage-demo:
 	cd labs && go run ./cmd/lab lsm -output ../artifacts/storage.json
 verify-storage: coverage-check storage-test storage-demo
+
+.PHONY: btree-test btree-demo verify-btree
+btree-test:
+	cd labs && go test -race -count=1 ./ch04/btree
+btree-demo:
+	cd labs && go run ./cmd/lab btree -output ../artifacts/btree.json
+verify-btree: coverage-check btree-test btree-demo

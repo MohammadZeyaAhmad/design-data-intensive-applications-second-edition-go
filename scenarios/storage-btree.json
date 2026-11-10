@@ -1,0 +1,8 @@
+{
+  "id": "storage-btree",
+  "status": "verified",
+  "work_packages": ["APP-01", "C04-02"],
+  "commands": ["make verify-btree", "make verify ID=C04-02", "go run ./cmd/guide verify-btree", "make storage-demo"],
+  "assertions": ["random mutations and ordered ranges match a map across three tree orders", "page occupancy, separator minima, leaf depth and sibling links remain valid", "root growth/collapse and persisted free-page reuse preserve exact allocation", "WAL commit precedes page changes and DATA checkpoint precedes log reset", "valid full-page redo repairs torn leaves and metadata", "modeled crashes at every mutation retain an allowed acknowledged prefix", "recovery can be interrupted and repeated", "18 native process-kill cases preserve committed state and writer exclusion", "stale, foreign, incomplete and corrupt redo have distinct recovery behavior", "page and redo codecs enforce bounded canonical formats", "custom B+ tree and bbolt produce identical warehouse state", "the combined storage report includes all five engines without changing production authority"],
+  "evidence": ["labs/ch04/btree/tree_test.go", "labs/ch04/btree/codec_test.go", "labs/ch04/btree/power_test.go", "labs/ch04/btree/process_test.go", "labs/internal/diskmodel/model.go", "labs/ch04/storage/scenario.go", "docs/chapters/ch04/page-based-btree.md"]
+}

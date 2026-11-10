@@ -3,24 +3,25 @@
 package lsm
 
 import (
-	"errors"
 	"fmt"
+
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch04/kv"
 )
 
 var (
-	ErrNotFound    = errors.New("key not found")
-	ErrClosed      = errors.New("database closed")
-	ErrLocked      = errors.New("database already open")
-	ErrCorrupt     = errors.New("corrupt storage")
-	ErrInvalid     = errors.New("invalid storage argument")
-	ErrLimit       = errors.New("storage lab limit exceeded")
-	ErrRecovery    = errors.New("write outcome uncertain; close and reopen database")
-	ErrUnsupported = errors.New("filesystem locking unsupported on this platform")
+	ErrNotFound    = kv.ErrNotFound
+	ErrClosed      = kv.ErrClosed
+	ErrLocked      = kv.ErrLocked
+	ErrCorrupt     = kv.ErrCorrupt
+	ErrInvalid     = kv.ErrInvalid
+	ErrLimit       = kv.ErrLimit
+	ErrRecovery    = kv.ErrRecovery
+	ErrUnsupported = kv.ErrUnsupported
 )
 
 const (
-	MaxKeyBytes    = 128
-	MaxValueBytes  = 1 << 20
+	MaxKeyBytes    = kv.MaxKeyBytes
+	MaxValueBytes  = kv.MaxValueBytes
 	maxRecordBytes = 17 + MaxKeyBytes + MaxValueBytes
 	maxDataBytes   = 16 << 20
 	maxIndexBytes  = 4 << 20
@@ -83,10 +84,7 @@ func (o Options) defaults() (Options, error) {
 	return o, nil
 }
 
-type Pair struct {
-	Key   []byte `json:"key"`
-	Value []byte `json:"value"`
-}
+type Pair = kv.Pair
 type Counters struct {
 	LogicalBytes  uint64 `json:"logical_bytes"`
 	WALBytes      uint64 `json:"wal_bytes_written"`
@@ -126,13 +124,4 @@ func corruption(format string, args ...any) error {
 }
 
 // PrefixEnd returns the exclusive bound for a byte prefix; nil means unbounded.
-func PrefixEnd(prefix []byte) []byte {
-	b := clone(prefix)
-	for i := len(b) - 1; i >= 0; i-- {
-		if b[i] != 255 {
-			b[i]++
-			return b[:i+1]
-		}
-	}
-	return nil
-}
+func PrefixEnd(prefix []byte) []byte { return kv.PrefixEnd(prefix) }

@@ -1,5 +1,21 @@
 # Validation
 
+## Ninth increment: page-based B+ tree and full-page redo
+
+Recorded **10 November 2026**, using Go **1.27.3**, Linux amd64 and the same pinned bbolt baseline. The custom B+ tree passes map-oracle schedules for orders 4, 6 and 8, with structural checks after mutations. Dedicated schedules verify root growth/collapse, both borrowing and merging, exact separators, linked ranges, copied/binary/empty-value handling, writer exclusion and reuse of the original page allocation after deletion and reopening.
+
+The shared filesystem model passed **1,338 data/WAL mutation cuts**, with **190 additional recovery interruptions** inside those schedules, plus first-open fault schedules. It distinguishes buffered data from early/torn persistence, including partial page overwrites. Every recovered generation matches the exact oracle map at an allowed submitted prefix, with complete page accounting. The native suite covers **18 checkpoint/recovery cases**: ten root-split/checkpoint boundaries and eight recovery boundaries, with a preliminary committed-WAL kill before each recovery case.
+
+Recovery tests repair a torn leaf, torn metadata and truncated DATA from a valid redo transaction. Missing files, complete checksum damage, stale/foreign redo and sequence gaps fail closed. Every incomplete prefix of a valid redo frame is checked, and an exhaustive checksum-valid mutation sweep exercises semantic bounds. Structure-aware fuzzing recomputes framing/page checksums to reach internal decoders: the page target completed **190,138 executions** and the redo target **5,989 executions** in bounded eight-second runs with two workers, without failure. These counts describe finite checks, not proofs over all faults.
+
+The default tree report uses **512 synthetic keys, three repetitions**, synchronous mutations and overlayfs in this workspace. After 171 overwrites and 74 deletes it contains **438 live keys**, height **4**, and **154 allocated non-metadata pages**, of which **54 are free**. Its structural check reports 83 leaves and 17 branches. Deleting the live set, reopening, and reinserting it reuses **134 pages** while keeping the same allocation high-water mark. The independent bbolt alternative has the same logical digest. The combined storage report now includes all **five engines**.
+
+The small eight-key capacity and 256-byte inline-value limit are reported explicitly. Full-page redo writes whole modified paths, and the simple separator implementation does extra reads. Page/WAL byte counters and raw timings are workload evidence; they do not establish a hardware-wide performance ranking. Process kills retain the OS cache, while power-loss claims are limited to the declared model and honest fsync/rename assumptions.
+
+Both storage engines now share the low-level file/lock contract, common key/value types and deterministic fault model. LSM format and write/publication behavior remain unchanged and its regression suite passes. Reports are ignored `artifacts/btree.json` and `artifacts/storage.json`; CI retains both. Scoped Make and root guide verification require no application credentials/services. Application and standalone lab builds remain separate.
+
+The [B+ tree scenario](../scenarios/storage-btree.json) brings the tracker to **nine scenario manifests**, with all 88 original packages retained: **22 in progress, 66 planned**. C04-02 remains in progress for its complete sub-concept audit, overflow pages, denser formats and broader scale/concurrency variants. See the [guide](BTREE.md), [chapter](chapters/ch04/page-based-btree.md) and [runbook](runbooks/btree-recovery.md).
+
 ## Eighth increment: persistent LSM and embedded storage comparison
 
 Recorded **10 November 2026** with Go **1.27.3** on Linux amd64 and bbolt **1.4.3**. Application and lab race tests, architecture checks, vet, separate application/lab builds, the scoped storage target and the root guide command passed. The original application integration suite remains 71 PostgreSQL, three Kafka and three Temporal tests; this increment adds storage tests in the independent lab module.

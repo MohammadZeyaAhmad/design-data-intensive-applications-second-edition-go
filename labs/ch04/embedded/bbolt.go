@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch04/lsm"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch04/kv"
 	"go.etcd.io/bbolt"
 )
 
@@ -43,44 +43,44 @@ func OpenBolt(path string) (*Bolt, error) {
 	return &Bolt{db, path}, nil
 }
 func (b *Bolt) Put(k, v []byte) error {
-	if len(k) == 0 || len(k) > lsm.MaxKeyBytes || len(v) > lsm.MaxValueBytes {
-		return lsm.ErrInvalid
+	if len(k) == 0 || len(k) > kv.MaxKeyBytes || len(v) > kv.MaxValueBytes {
+		return kv.ErrInvalid
 	}
 	return b.db.Update(func(tx *bbolt.Tx) error { return tx.Bucket(bucket).Put(k, v) })
 }
 func (b *Bolt) Delete(k []byte) error {
-	if len(k) == 0 || len(k) > lsm.MaxKeyBytes {
-		return lsm.ErrInvalid
+	if len(k) == 0 || len(k) > kv.MaxKeyBytes {
+		return kv.ErrInvalid
 	}
 	return b.db.Update(func(tx *bbolt.Tx) error { return tx.Bucket(bucket).Delete(k) })
 }
 func (b *Bolt) Get(k []byte) ([]byte, error) {
-	if len(k) == 0 || len(k) > lsm.MaxKeyBytes {
-		return nil, lsm.ErrInvalid
+	if len(k) == 0 || len(k) > kv.MaxKeyBytes {
+		return nil, kv.ErrInvalid
 	}
 	var value []byte
 	e := b.db.View(func(tx *bbolt.Tx) error {
 		found, v := tx.Bucket(bucket).Cursor().Seek(k)
 		if !bytes.Equal(found, k) {
-			return lsm.ErrNotFound
+			return kv.ErrNotFound
 		}
 		value = append([]byte(nil), v...)
 		return nil
 	})
 	return value, e
 }
-func (b *Bolt) Scan(start, end []byte, limit int) ([]lsm.Pair, error) {
-	if len(start) > lsm.MaxKeyBytes || len(end) > lsm.MaxKeyBytes+1 || limit < 1 || limit > 65536 || end != nil && bytes.Compare(start, end) > 0 {
-		return nil, lsm.ErrInvalid
+func (b *Bolt) Scan(start, end []byte, limit int) ([]kv.Pair, error) {
+	if len(start) > kv.MaxKeyBytes || len(end) > kv.MaxKeyBytes+1 || limit < 1 || limit > 65536 || end != nil && bytes.Compare(start, end) > 0 {
+		return nil, kv.ErrInvalid
 	}
-	var rows []lsm.Pair
+	var rows []kv.Pair
 	e := b.db.View(func(tx *bbolt.Tx) error {
 		c := tx.Bucket(bucket).Cursor()
 		for k, v := c.Seek(start); k != nil && len(rows) < limit; k, v = c.Next() {
 			if end != nil && bytes.Compare(k, end) >= 0 {
 				break
 			}
-			rows = append(rows, lsm.Pair{Key: append([]byte(nil), k...), Value: append([]byte(nil), v...)})
+			rows = append(rows, kv.Pair{Key: append([]byte(nil), k...), Value: append([]byte(nil), v...)})
 		}
 		return nil
 	})

@@ -38,14 +38,21 @@ jobs:
       - name: Real PostgreSQL concurrency and failure tests
         run: make integration
       - name: Source inventory and executable storage comparisons
-        run: make coverage-check lab storage-demo
+        run: make coverage-check lab storage-demo btree-demo
       - name: Bounded storage record fuzzing
         run: cd labs && go test -run '^$' -fuzz '^FuzzRecordDecoder$' -fuzztime=5s -parallel=2 ./ch04/lsm
+      - name: Bounded B+ tree page and redo fuzzing
+        run: |
+          cd labs
+          go test -run '^$' -fuzz '^FuzzPageDecoder$' -fuzztime=5s -parallel=2 ./ch04/btree
+          go test -run '^$' -fuzz '^FuzzRedoDecoder$' -fuzztime=5s -parallel=2 ./ch04/btree
       - name: Retain storage comparison report
         uses: actions/upload-artifact@v4
         with:
           name: storage-comparison
-          path: artifacts/storage.json
+          path: |
+            artifacts/storage.json
+            artifacts/btree.json
       - name: Verify application builds independently of the lab workspace
         run: |
           GOWORK=off go build ./cmd/atlas ./cmd/guide ./cmd/admin

@@ -17,28 +17,28 @@ import (
 	"sort"
 	"time"
 
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch04/btree"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch04/embedded"
+	storekv "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch04/kv"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch04/lsm"
 )
 
-type kv interface {
-	Put([]byte, []byte) error
-	Delete([]byte) error
-	Get([]byte) ([]byte, error)
-	Scan([]byte, []byte, int) ([]lsm.Pair, error)
-	Close() error
-}
+type kv = storekv.Store
 type Run struct {
-	WriteNanos           int64      `json:"write_nanos"`
-	ReadNanos            int64      `json:"read_nanos"`
-	WriteP50Nanos        int64      `json:"write_p50_nanos"`
-	WriteP95Nanos        int64      `json:"write_p95_nanos"`
-	DiskBytes            int64      `json:"disk_bytes"`
-	LiveBytes            int64      `json:"live_key_value_bytes"`
-	Digest               string     `json:"state_sha256"`
-	LSM                  *lsm.Stats `json:"lsm,omitempty"`
-	AfterCompactionBytes int64      `json:"after_full_compaction_bytes,omitempty"`
-	ReopenVerified       bool       `json:"reopen_verified"`
+	WriteNanos           int64              `json:"write_nanos"`
+	ReadNanos            int64              `json:"read_nanos"`
+	WriteP50Nanos        int64              `json:"write_p50_nanos"`
+	WriteP95Nanos        int64              `json:"write_p95_nanos"`
+	DiskBytes            int64              `json:"disk_bytes"`
+	LiveBytes            int64              `json:"live_key_value_bytes"`
+	Digest               string             `json:"state_sha256"`
+	LSM                  *lsm.Stats         `json:"lsm,omitempty"`
+	BTree                *btree.Stats       `json:"btree,omitempty"`
+	BTreeCheck           *btree.CheckReport `json:"btree_check,omitempty"`
+	AfterChurn           *btree.Stats       `json:"after_delete_reopen_reinsert,omitempty"`
+	FreeReuseVerified    bool               `json:"free_page_reuse_verified,omitempty"`
+	AfterCompactionBytes int64              `json:"after_full_compaction_bytes,omitempty"`
+	ReopenVerified       bool               `json:"reopen_verified"`
 }
 type Result struct {
 	Engine        string         `json:"engine"`
@@ -82,6 +82,12 @@ func RunScenario(rows, repetitions int) (Report, error) {
 // RunScenarioAt creates only owned temporary children of parent. This lets the
 // caller choose a filesystem without ever deleting an existing database.
 func RunScenarioAt(parent string, rows, repetitions int) (Report, error) {
+	return runEngines(parent, rows, repetitions, []string{"append-log", "lsm-tiered", "lsm-leveled", "btree", "bbolt"})
+}
+func RunBTreeScenarioAt(parent string, rows, repetitions int) (Report, error) {
+	return runEngines(parent, rows, repetitions, []string{"btree", "bbolt"})
+}
+func runEngines(parent string, rows, repetitions int, engines []string) (Report, error) {
 	var report Report
 	if rows < 32 || rows > 4096 || repetitions < 1 || repetitions > 5 {
 		return report, lsm.ErrInvalid
@@ -97,7 +103,7 @@ func RunScenarioAt(parent string, rows, repetitions int) (Report, error) {
 	}
 	defer os.RemoveAll(dir)
 	report = Report{DatasetRows: rows, Repetitions: repetitions, Environment: map[string]any{"go": runtime.Version(), "os": runtime.GOOS, "arch": runtime.GOARCH, "gomaxprocs": runtime.GOMAXPROCS(0), "filesystem": filesystemInfo(dir), "cache": "fresh database; warm process and OS cache; no cache eviction", "timing": "wall clock; includes sync and compaction; no device-level claims", "bbolt_version": moduleVersion("go.etcd.io/bbolt")}}
-	for _, engine := range []string{"append-log", "lsm-tiered", "lsm-leveled", "bbolt"} {
+	for _, engine := range engines {
 		result := Result{Engine: engine, Durability: "sync every mutation", Configuration: configuration(engine)}
 		for run := 0; run < repetitions; run++ {
 			path := filepath.Join(dir, fmt.Sprintf("%s-%d", engine, run))
@@ -122,7 +128,15 @@ func RunScenarioAt(parent string, rows, repetitions int) (Report, error) {
 		}
 	}
 	report.Passed = true
-	report.Assertions = []string{"warehouse snapshot updates and deletes match the oracle", "tenant-prefix scans match the oracle", "missing keys and empty values remain distinct", "reopening retains the same logical state", "full LSM compaction preserves state and removes deleted versions", "append-log, both compaction styles and bbolt agree"}
+	report.Assertions = []string{"warehouse snapshot updates and deletes match the oracle", "tenant-prefix scans match the oracle", "missing keys and empty values remain distinct", "reopening retains the same logical state", "selected engines have identical state digests"}
+	for _, engine := range engines {
+		if engine == "btree" {
+			report.Assertions = append(report.Assertions, "B+ tree occupancy, separators, links and allocation are valid", "free pages survive reopen and are reused after deleting and reinserting the live set")
+		}
+		if engine == "lsm-leveled" {
+			report.Assertions = append(report.Assertions, "full LSM compaction preserves state and removes deleted versions")
+		}
+	}
 	return report, nil
 }
 func moduleVersion(path string) string {
@@ -136,6 +150,9 @@ func moduleVersion(path string) string {
 	return "unknown"
 }
 func openStore(dir, engine string) (kv, error) {
+	if engine == "btree" {
+		return btree.Open(dir, btree.Options{})
+	}
 	if engine == "bbolt" {
 		return embedded.OpenBolt(filepath.Join(dir, "data.bolt"))
 	}
@@ -153,6 +170,9 @@ func lsmOptions(engine string) lsm.Options {
 	return o
 }
 func configuration(engine string) map[string]any {
+	if engine == "btree" {
+		return map[string]any{"layout": "in-place B+ tree", "page_bytes": btree.PageSize, "max_keys": 8, "max_key_bytes": btree.MaxKeyBytes, "max_value_bytes": btree.MaxValueBytes, "transaction": "full-page redo with synchronous checkpoint"}
+	}
 	if engine == "bbolt" {
 		return map[string]any{"layout": "copy-on-write B+ tree", "transaction": "one per mutation", "no_sync": false}
 	}
@@ -226,6 +246,18 @@ func runStore(dir, engine string, n int) (result Run, err error) {
 		}
 		result.LSM = &s
 		result.DiskBytes = s.DiskBytes
+	} else if tree, ok := db.(*btree.DB); ok {
+		check, e := tree.Check()
+		if e != nil {
+			return result, e
+		}
+		result.BTreeCheck = &check
+		s, e := tree.Stats()
+		if e != nil {
+			return result, e
+		}
+		result.BTree = &s
+		result.DiskBytes = s.DiskBytes
 	} else {
 		result.DiskBytes, e = db.(*embedded.Bolt).DiskBytes()
 		if e != nil {
@@ -246,6 +278,57 @@ func runStore(dir, engine string, n int) (result Run, err error) {
 	result.ReopenVerified = true
 	if e = emptyValueProbe(db); e != nil {
 		return result, e
+	}
+	if tree, ok := db.(*btree.DB); ok {
+		rows := sortedOracle(oracle, nil)
+		for _, p := range rows {
+			if e = tree.Delete(p.Key); e != nil {
+				return result, e
+			}
+		}
+		check, e := tree.Check()
+		if e != nil {
+			return result, e
+		}
+		if check.Keys != 0 || check.Height != 1 || check.FreePages == 0 {
+			return result, errors.New("tree did not collapse into reusable free pages")
+		}
+		if e = db.Close(); e != nil {
+			return result, e
+		}
+		db = nil
+		db, e = openStore(dir, engine)
+		if e != nil {
+			return result, e
+		}
+		tree = db.(*btree.DB)
+		check, e = tree.Check()
+		if e != nil {
+			return result, e
+		}
+		if check.Keys != 0 || check.FreePages == 0 {
+			return result, errors.New("free list did not survive reopening")
+		}
+		for _, p := range rows {
+			if e = tree.Put(p.Key, p.Value); e != nil {
+				return result, e
+			}
+		}
+		if e = verify(tree, oracle, n); e != nil {
+			return result, e
+		}
+		if _, e = tree.Check(); e != nil {
+			return result, e
+		}
+		after, e := tree.Stats()
+		if e != nil {
+			return result, e
+		}
+		if after.Counters.FreeReuses == 0 {
+			return result, errors.New("free pages were not reused")
+		}
+		result.FreeReuseVerified = true
+		result.AfterChurn = &after
 	}
 	if l, ok := db.(*lsm.DB); ok && engine != "append-log" {
 		if e = l.Compact(); e != nil {

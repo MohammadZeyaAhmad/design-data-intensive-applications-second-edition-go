@@ -505,7 +505,7 @@ func sortedPairs(m map[string]string) []Pair {
 	sort.Strings(keys)
 	var rows []Pair
 	for _, k := range keys {
-		rows = append(rows, Pair{[]byte(k), []byte(m[k])})
+		rows = append(rows, Pair{Key: []byte(k), Value: []byte(m[k])})
 	}
 	return rows
 }

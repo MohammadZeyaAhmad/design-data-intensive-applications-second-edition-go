@@ -18,8 +18,8 @@ func main() {
 	}
 }
 func run(args []string) error {
-	if len(args) > 0 && args[0] == "lsm" {
-		flags := flag.NewFlagSet("lab lsm", flag.ContinueOnError)
+	if len(args) > 0 && (args[0] == "lsm" || args[0] == "btree") {
+		flags := flag.NewFlagSet("lab "+args[0], flag.ContinueOnError)
 		rows := flags.Int("rows", 512, "synthetic warehouse rows (32..4096)")
 		runs := flags.Int("runs", 3, "fresh database repetitions (1..5)")
 		output := flags.String("output", "", "optional JSON report path")
@@ -34,7 +34,13 @@ func run(args []string) error {
 		if parent == "" && *output != "" {
 			parent = filepath.Dir(*output)
 		}
-		report, e := storage.RunScenarioAt(parent, *rows, *runs)
+		var report storage.Report
+		var e error
+		if args[0] == "btree" {
+			report, e = storage.RunBTreeScenarioAt(parent, *rows, *runs)
+		} else {
+			report, e = storage.RunScenarioAt(parent, *rows, *runs)
+		}
 		if e != nil {
 			return e
 		}
@@ -52,7 +58,7 @@ func run(args []string) error {
 		return e
 	}
 	if len(args) != 1 || args[0] != "lost-update" {
-		return errors.New("usage: lab lost-update | lsm [-rows N] [-runs N] [-output path] [-workdir path]")
+		return errors.New("usage: lab lost-update | lsm|btree [-rows N] [-runs N] [-output path] [-workdir path]")
 	}
 	report := lostupdate.Run()
 	if !report.ExpectedCounterexample || report.UnsafeFinal != 1 || report.AtomicFinal != 2 {

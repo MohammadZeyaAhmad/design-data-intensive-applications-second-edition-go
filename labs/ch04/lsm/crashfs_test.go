@@ -1,230 +1,20 @@
 package lsm
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"reflect"
-	"sort"
 	"testing"
+
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/internal/diskmodel"
 )
 
-// crashFS separates inode contents from directory-entry durability. A crash
-// restores only fsynced data/names, with optional early persistence/reordering.
-// It models the declared fsync/atomic-rename contract, not a particular SSD.
-type crashNode struct{ live, stable []byte }
-type crashFS struct {
-	nodes                                    map[int]*crashNode
-	live, stable                             map[string]int
-	next                                     int
-	locked                                   bool
-	writeThrough, eagerManifest, eagerRemove bool
-	chunk                                    int
-	active                                   bool
-	cut, count                               int
-}
-type powerLoss struct{}
+type crashFS = diskmodel.FS
+type powerLoss = diskmodel.CrashEvent
 
-func newCrashFS() *crashFS {
-	return &crashFS{nodes: map[int]*crashNode{}, live: map[string]int{}, stable: map[string]int{}, next: 1}
-}
-func (f *crashFS) event() {
-	if !f.active {
-		return
-	}
-	f.count++
-	if f.count == f.cut {
-		panic(powerLoss{})
-	}
-}
-func (f *crashFS) MkdirAll(string) error { return nil } // test starts with a durable directory
-func (f *crashFS) List(dir string) ([]string, error) {
-	var r []string
-	for p := range f.live {
-		if filepath.Dir(p) == dir {
-			r = append(r, filepath.Base(p))
-		}
-	}
-	sort.Strings(r)
-	return r, nil
-}
-func (f *crashFS) Open(path string, flags int) (dataFile, error) {
-	id, ok := f.live[path]
-	if ok && flags&os.O_EXCL != 0 {
-		return nil, os.ErrExist
-	}
-	if !ok {
-		if flags&os.O_CREATE == 0 {
-			return nil, os.ErrNotExist
-		}
-		id = f.next
-		f.next++
-		f.nodes[id] = &crashNode{}
-		f.live[path] = id
-		f.event()
-	}
-	if flags&os.O_TRUNC != 0 {
-		f.nodes[id].live = nil
-		if f.writeThrough {
-			f.nodes[id].stable = nil
-		}
-		f.event()
-	}
-	return &crashFile{fs: f, id: id, write: flags&(os.O_WRONLY|os.O_RDWR) != 0}, nil
-}
-func (f *crashFS) Rename(a, b string) error {
-	id, ok := f.live[a]
-	if !ok {
-		return os.ErrNotExist
-	}
-	delete(f.live, a)
-	f.live[b] = id
-	if f.eagerManifest && filepath.Base(b) == "MANIFEST" {
-		delete(f.stable, a)
-		f.stable[b] = id
-	}
-	f.event()
-	return nil
-}
-func (f *crashFS) Remove(p string) error {
-	if _, ok := f.live[p]; !ok {
-		return os.ErrNotExist
-	}
-	delete(f.live, p)
-	if f.eagerRemove {
-		delete(f.stable, p)
-	}
-	f.event()
-	return nil
-}
-func (f *crashFS) SyncDir(string) error { f.stable = copyNames(f.live); f.event(); return nil }
-
-type crashLock struct{ fs *crashFS }
-
-func (l *crashLock) Close() error { l.fs.locked = false; return nil }
-func (f *crashFS) Lock(p string) (io.Closer, error) {
-	if f.locked {
-		return nil, ErrLocked
-	}
-	h, e := f.Open(p, os.O_CREATE|os.O_RDWR)
-	if e != nil {
-		return nil, e
-	}
-	h.Close()
-	f.locked = true
-	return &crashLock{f}, nil
-}
-func copyNames(m map[string]int) map[string]int {
-	r := map[string]int{}
-	for k, v := range m {
-		r[k] = v
-	}
-	return r
-}
-func (f *crashFS) crash() {
-	f.live = copyNames(f.stable)
-	for _, n := range f.nodes {
-		n.live = clone(n.stable)
-	}
-	f.locked = false
-	f.active = false
-	f.cut = 0
-}
-func (f *crashFS) snapshot() *crashFS {
-	r := newCrashFS()
-	r.next = f.next
-	r.live = copyNames(f.live)
-	r.stable = copyNames(f.stable)
-	for k, n := range f.nodes {
-		r.nodes[k] = &crashNode{clone(n.live), clone(n.stable)}
-	}
-	r.writeThrough = f.writeThrough
-	r.eagerManifest = f.eagerManifest
-	r.eagerRemove = f.eagerRemove
-	r.chunk = f.chunk
-	return r
-}
-
-type crashFile struct {
-	fs            *crashFS
-	id            int
-	pos           int64
-	write, closed bool
-}
-
-func (f *crashFile) ReadAt(b []byte, offset int64) (int, error) {
-	if f.closed {
-		return 0, os.ErrClosed
-	}
-	return bytes.NewReader(f.fs.nodes[f.id].live).ReadAt(b, offset)
-}
-func (f *crashFile) Write(b []byte) (int, error) {
-	if f.closed {
-		return 0, os.ErrClosed
-	}
-	if !f.write {
-		return 0, os.ErrPermission
-	}
-	if f.fs.chunk > 0 && len(b) > f.fs.chunk {
-		b = b[:f.fs.chunk]
-	}
-	node := f.fs.nodes[f.id]
-	end := int(f.pos) + len(b)
-	if end > len(node.live) {
-		node.live = append(node.live, make([]byte, end-len(node.live))...)
-	}
-	copy(node.live[int(f.pos):], b)
-	f.pos = int64(end)
-	if f.fs.writeThrough {
-		node.stable = clone(node.live)
-	}
-	f.fs.event()
-	return len(b), nil
-}
-func (f *crashFile) Seek(offset int64, whence int) (int64, error) {
-	var p int64
-	switch whence {
-	case io.SeekStart:
-		p = offset
-	case io.SeekCurrent:
-		p = f.pos + offset
-	case io.SeekEnd:
-		p = int64(len(f.fs.nodes[f.id].live)) + offset
-	default:
-		return 0, ErrInvalid
-	}
-	if p < 0 {
-		return 0, ErrInvalid
-	}
-	f.pos = p
-	return p, nil
-}
-func (f *crashFile) Truncate(size int64) error {
-	if size < 0 || !f.write {
-		return ErrInvalid
-	}
-	n := f.fs.nodes[f.id]
-	if size <= int64(len(n.live)) {
-		n.live = n.live[:size]
-	} else {
-		n.live = append(n.live, make([]byte, int(size)-len(n.live))...)
-	}
-	if f.fs.writeThrough {
-		n.stable = clone(n.live)
-	}
-	f.fs.event()
-	return nil
-}
-func (f *crashFile) Sync() error {
-	f.fs.nodes[f.id].stable = clone(f.fs.nodes[f.id].live)
-	f.fs.event()
-	return nil
-}
-func (f *crashFile) Size() (int64, error) { return int64(len(f.fs.nodes[f.id].live)), nil }
-func (f *crashFile) Close() error         { f.closed = true; return nil }
+func newCrashFS() *crashFS { return diskmodel.New() }
 
 var powerOperations = []record{
 	{key: []byte("a"), value: []byte("new")},
@@ -324,32 +114,32 @@ func TestPowerLossAtEveryFilesystemMutation(t *testing.T) {
 					must(t, d.Put([]byte("c"), []byte("base")))
 					must(t, d.Flush())
 					must(t, d.Close())
-					base.writeThrough = variant.data
-					base.eagerManifest = variant.manifest
-					base.eagerRemove = variant.remove
-					base.chunk = variant.chunk
-					countFS := base.snapshot()
+					base.WriteThrough = variant.data
+					base.EagerManifest = variant.manifest
+					base.EagerRemove = variant.remove
+					base.Chunk = variant.chunk
+					countFS := base.Snapshot()
 					d, e = openFS(countFS, "db", o)
 					must(t, e)
-					countFS.active = true
+					countFS.Active = true
 					must(t, runPowerSchedule(d, &powerProgress{}))
-					operations := countFS.count
+					operations := countFS.Count
 					must(t, d.Close())
 					if operations < 20 {
 						t.Fatal("schedule omitted publication boundaries", operations)
 					}
 					for cut := 1; cut <= operations; cut++ {
-						fs := base.snapshot()
+						fs := base.Snapshot()
 						db, e := openFS(fs, "db", o)
 						must(t, e)
-						fs.cut = cut
-						fs.active = true
+						fs.Cut = cut
+						fs.Active = true
 						progress := &powerProgress{}
 						crashed, e := interruptPower(fs, db, progress)
 						if e != nil || !crashed {
 							t.Fatalf("cut %d/%d: %v crash=%v", cut, operations, e, crashed)
 						}
-						fs.crash()
+						fs.Crash()
 						recovered, e := openFS(fs, "db", o)
 						if e != nil {
 							t.Fatalf("cut %d/%d: reopen %v", cut, operations, e)

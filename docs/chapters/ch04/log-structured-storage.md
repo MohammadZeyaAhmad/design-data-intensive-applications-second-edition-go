@@ -1,6 +1,6 @@
 # Chapter 4: From an append log to immutable sorted runs
 
-Package C04-01 connects storage mechanics to the project's warehouse stock read models. The lab uses synthetic snapshots with keys such as `tenant/acme/warehouse/east/sku/000002`. They are ordinary bytes to the engine; prefix layout is not an authorization boundary. Four stores must return the same current snapshot after updates, deletes, compaction and reopening.
+Package C04-01 connects storage mechanics to the project's warehouse stock read models. The lab uses synthetic snapshots with keys such as `tenant/acme/warehouse/east/sku/000002`. They are ordinary bytes to the engine; prefix layout is not an authorization boundary. Five stores must return the same current snapshot after updates, deletes, compaction and reopening.
 
 Run `make verify-storage`, then inspect `artifacts/storage.json`. The [storage guide](../../STORAGE.md) documents the format, durability contract, limits and API. The source starts at `labs/ch04/lsm/db.go`.
 
@@ -26,7 +26,7 @@ A tombstone can disappear only when the compactor knows it has included all olde
 
 There are separate fences for a successful write and a flush. Write durability comes from the WAL fsync. Flush durability comes from table-file/name persistence followed by manifest persistence. The WAL cannot be reset merely because a table file exists. Likewise, compaction cannot remove inputs merely because a new manifest file was written; the manifest rename must be durable first.
 
-`crashfs_test.go` models file contents and directory names independently. It explores crashes after each filesystem mutation under buffered writes, early data persistence, early manifest-rename persistence, early deletions and short writes. Each recovered sequence must be a submitted prefix at least as long as the acknowledged/fenced prefix, and its complete map must match that exact prefix. The oracle does not merely check that the database opens.
+`crashfs_test.go` drives the shared `labs/internal/diskmodel` model of file contents and directory names independently. It explores crashes after each filesystem mutation under buffered writes, early data persistence, early manifest-rename persistence, early deletions and short writes. Each recovered sequence must be a submitted prefix at least as long as the acknowledged/fenced prefix, and its complete map must match that exact prefix. The oracle does not merely check that the database opens.
 
 `process_test.go` separately kills real child processes at 21 named boundaries and checks file-lock exclusion, the acknowledged prefix and the recovered map. Those are process failures on the actual filesystem. The model supplies the power-loss schedules; neither check certifies a physical device or a filesystem implementation.
 

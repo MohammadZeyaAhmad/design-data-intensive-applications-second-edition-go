@@ -14,6 +14,7 @@ type Request struct {
 	Tenant, Operation, Key string
 	Hash                   [32]byte
 	CheckoutMethod         string
+	CheckoutEngine         string
 }
 
 func NewRequest(tenant, operation, key string, payload any) (Request, error) {

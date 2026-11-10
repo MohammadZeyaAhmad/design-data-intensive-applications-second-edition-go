@@ -33,7 +33,7 @@ func main() {
 }
 func run() error {
 	if len(os.Args) != 2 {
-		return errors.New("usage: guide configure|doctor|wait|demo|demo-orders|demo-checkout|verify-checkout|verify-checkout-recovery|verify-fulfillment|verify-fulfillment-recovery|verify-operations|verify-kafka|verify-live|verify-lifecycle|verify-orders|verify-recovery|coverage")
+		return errors.New("usage: guide configure|doctor|wait|demo|demo-orders|demo-checkout|verify-checkout|verify-checkout-recovery|verify-fulfillment|verify-fulfillment-recovery|verify-operations|verify-kafka|verify-temporal|verify-live|verify-lifecycle|verify-orders|verify-recovery|coverage")
 	}
 	command := os.Args[1]
 	if command == "configure" {
@@ -73,6 +73,8 @@ func run() error {
 		return verifyCheckoutRecovery(c)
 	case "verify-kafka":
 		return verifyKafka(c)
+	case "verify-temporal":
+		return verifyTemporal(c)
 	case "verify-operations":
 		return verifyOperations(c)
 	case "verify-fulfillment":
@@ -343,6 +345,9 @@ func compose(args ...string) error {
 	base := []string{"compose", "--env-file", ".env", "-f", "deploy/compose/compose.yaml"}
 	if os.Getenv("ATLAS_MESSAGE_TRANSPORT") == "kafka" {
 		base = append(base, "-f", "deploy/compose/kafka.yaml")
+	}
+	if os.Getenv("ATLAS_CHECKOUT_ENGINE") == "temporal" {
+		base = append(base, "-f", "deploy/compose/temporal.yaml")
 	}
 	base = append(base, "-p", "ddia-go")
 	cmd := exec.Command("docker", append(base, args...)...)

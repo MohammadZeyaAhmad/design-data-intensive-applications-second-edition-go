@@ -13,6 +13,7 @@ var ErrInvalid = errors.New("quote or checkout input is invalid")
 var ErrNotFound = errors.New("order not found")
 
 type Requested struct {
+	Engine        string            `json:"engine,omitempty"`
 	Metadata      envelope.Metadata `json:"metadata,omitzero"`
 	ID            string            `json:"id"`
 	TenantID      string            `json:"tenant_id"`

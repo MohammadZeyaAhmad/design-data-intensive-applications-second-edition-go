@@ -1,0 +1,8 @@
+{
+  "id": "temporal-checkout",
+  "status": "verified",
+  "work_packages": ["APP-07", "C05-05", "C08-08", "C09-04", "C13-05"],
+  "commands": ["make integration", "make integration-temporal", "make verify-temporal", "ATLAS_CHECKOUT_ENGINE=temporal make verify-checkout verify-checkout-recovery verify-fulfillment verify-operations"],
+  "assertions": ["engine ownership is immutable and survives profile-change request replay", "PostgreSQL workers refuse Temporal jobs and activities refuse PostgreSQL jobs", "lost activity completion returns the original step receipt", "receipt failure rolls back checkpoint progress", "stale workers cannot save progress", "start and signal acknowledgment loss retain stable identity", "pause and cancellation persist authoritative flags and wake intents", "native cancellation compensates a captured payment once", "worker replacement after each external stage converges", "current workflow replays a real history without version markers", "continuation retains the global ordinal and cancellation flag", "Temporal server kill preserves the workflow run", "in-flight provider activity recovers after real container death and natural lease expiry", "both engines pass the same HTTP checkout outcome suite"],
+  "evidence": ["tests/integration/temporal_store_test.go", "tests/integration/temporal_test.go", "internal/checkout/adapters/temporal/workflow_test.go", "internal/checkout/adapters/temporal/testdata/checkout-v0.json", "cmd/guide/temporal.go", "cmd/guide/checkout.go"]
+}

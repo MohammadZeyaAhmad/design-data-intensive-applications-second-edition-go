@@ -2,7 +2,7 @@
 
 A practical companion to **Designing Data-Intensive Applications, second edition** by Martin Kleppmann and Chris Riccomini. The goal is one cohesive Go backend and a complete set of connected data-system experiments, with equal emphasis on learning and production engineering.
 
-**Implementation is in progress.** Working code includes Catalog quotes, transactional Inventory, event-sourced Ordering, a durable checkout process manager, and a simulated provider with an immutable payment journal, warehouse inventory, durable Fulfillment, versioned provenance, audited local workflow controls, and an optional real Kafka transport. The [complete plan](docs/plan/ddia-go-mega-project-plan.md), [88-package backlog](docs/plan/implementation-backlog.md), and [current status](docs/STATUS.md) distinguish the eventual scope from working code.
+**Implementation is in progress.** Working code includes Catalog quotes, transactional Inventory, event-sourced Ordering, a durable checkout process manager, and a simulated provider with an immutable payment journal, warehouse inventory, durable Fulfillment, versioned provenance, audited local workflow controls, an optional real Kafka transport, and a Temporal checkout alternative. The [complete plan](docs/plan/ddia-go-mega-project-plan.md), [88-package backlog](docs/plan/implementation-backlog.md), and [current status](docs/STATUS.md) distinguish the eventual scope from working code.
 
 ## Run the working implementation
 
@@ -46,6 +46,7 @@ make down
 - Actor/correlation/causation/origin-request metadata persisted across asynchronous work, with explicit legacy provenance.
 - Tenant-scoped local pause/resume/retry controls, live-lease protection and immutable transactional control audit.
 - Optional Kafka profile for events and workflow requests, with durable staging, manual offsets, ordered owner receipts, poison-stream isolation and audited retry.
+- Optional Temporal checkout profile with immutable ownership, atomic activity receipts, durable timers/signals, cancellation compensation and compatible history replay.
 - Independent Go lab showing a lost-update schedule, connected to the real database contention tests.
 
 Inventory state is authoritative in PostgreSQL tables; Ordering state is derived from its immutable event stream. A placed order currently records SKU/quantity intent. An order remains unpriced intent until checkout accepts a Catalog quote; captured payment and committed stock are required for confirmation. The local dispatcher uses PostgreSQL. Catalog price authority, checkout capture/compensation and a two-leg payment journal now run through published contracts; warehouse sourcing and a separate Fulfillment context now carry confirmed allocations through picking, packing, durable dispatch and delivery recording. Kafka transport is now executable; CDC, replicated broker operation, full telemetry and the remaining laboratories are tracked in the backlog.
@@ -76,7 +77,7 @@ deploy/compose/                    Reproducible local services
 docs/                             Guide, decisions, status, and full-book plan
 ```
 
-Start with the [inventory API](docs/API.md), [Ordering API](docs/ORDERING_API.md), [commerce contracts](docs/COMMERCE_API.md), [event-sourcing walkthrough](docs/chapters/ch03/event-sourcing.md), [checkout walkthrough](docs/chapters/ch05/checkout-workflow.md), and [Fulfillment contracts](docs/FULFILLMENT_API.md), and [provenance/operator controls](docs/OPERATIONS.md), and [Kafka transport](docs/MESSAGING.md). See [validation](docs/VALIDATION.md) for measured evidence and limitations. Machine-readable implementation progress is in [docs/progress.json](docs/progress.json).
+Start with the [inventory API](docs/API.md), [Ordering API](docs/ORDERING_API.md), [commerce contracts](docs/COMMERCE_API.md), [event-sourcing walkthrough](docs/chapters/ch03/event-sourcing.md), [checkout walkthrough](docs/chapters/ch05/checkout-workflow.md), and [Fulfillment contracts](docs/FULFILLMENT_API.md), and [provenance/operator controls](docs/OPERATIONS.md), and [Kafka transport](docs/MESSAGING.md), and [Temporal durable execution](docs/TEMPORAL.md). See [validation](docs/VALIDATION.md) for measured evidence and limitations. Machine-readable implementation progress is in [docs/progress.json](docs/progress.json).
 
 ## Full-book scope remains mandatory
 
@@ -97,11 +98,18 @@ make up-kafka         # optional Kafka transport profile; stop the other profile
 make verify-kafka     # broker outage, publisher kill, duplicate/conflict recovery
 make integration-kafka # real Kafka acknowledgments and consumer-group rebalance
 make down-kafka       # stops this profile and retains database/broker volumes
+make up-temporal      # optional workflow engine; stop the other profile first
+ATLAS_CHECKOUT_ENGINE=temporal make verify-checkout verify-fulfillment verify-operations
+make verify-temporal  # server/worker SIGKILL, persisted history and payment recovery
+make integration-temporal # real server, activity-stage restarts and v0 replay
+make down-temporal    # retains PostgreSQL and Temporal history volumes
 ```
 
 The original plan is preserved under `docs/plan/`; [docs/STATUS.md](docs/STATUS.md) is the current implementation record. The EPUB and extracted book prose are intentionally not part of this repository.
 
 Integration tests connect to the local `atlas_test` administrative binding, create a randomly named `atlas_test_run_*` database, and drop only that database afterward. The test role needs `CREATE DATABASE` permission; this avoids deleting or rewriting immutable historical events between test runs.
+
+The Temporal profile currently uses PostgreSQL message delivery; the combined Kafka/Temporal profile is not certified. An accepted checkout retains its engine, so drain pending Temporal work before stopping that runtime.
 
 For an existing earlier-increment checkout, upgrade with `docker compose --env-file .env -f deploy/compose/compose.yaml -p ddia-go stop api worker provider`, then `make up`. This preserves the database and applies the new migrations before starting updated binaries. Existing holds receive a fifteen-minute grace period at the expiry migration. The warehouse migration maps existing stock/events to `default` and schedules ready Fulfillment requests for previously confirmed orders. The expanded projection key requires the updated API/worker pair; use a coordinated local upgrade.
 

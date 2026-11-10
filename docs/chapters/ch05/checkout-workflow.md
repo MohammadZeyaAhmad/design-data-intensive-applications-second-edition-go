@@ -1,6 +1,6 @@
 # Chapter 5: Durable checkout, unknown outcomes and compensation
 
-Related packages: APP-05, APP-07, C09-04 and C13-05. This is the explicit persisted process-manager implementation; the Temporal alternative remains planned.
+Related packages: APP-05, APP-07, C09-04 and C13-05. This is the explicit persisted process-manager implementation; the [Temporal alternative](durable-execution.md) now schedules the same business feature.
 
 Run:
 
@@ -50,4 +50,4 @@ Read the implementation in this order:
 
 The source outbox and workflow inbox are separate transactions. If workflow creation commits but dispatch acknowledgment fails, redelivery must find the same immutable request and one existing job. Provider operations, local financial entries and order outcomes also commit separately. These are idempotency, reconciliation and compensation guarantees, not global ACID rollback.
 
-Trade-offs: a provider outage can keep a workflow pending; leases may delay recovery after a crash; expired holds can require a later refund; compensation can itself retry. The current ledger has two legs per transfer and one full refund per payment. Inventory currently represents one stock pool per tenant/SKU. Broader warehouse/fulfillment semantics, operational recovery controls, authorization/webhooks, a real provider, and durable-execution framework comparisons remain tracked work.
+Trade-offs: a provider outage can keep a workflow pending; leases may delay recovery after a crash; expired holds can require a later refund; compensation can itself retry. The current ledger has two legs per transfer and one full refund per payment. Warehouse sourcing, Fulfillment, audited controls and the Temporal alternative are now implemented in later increments. Single-SKU warehouse splits, broader recovery/repair, authorization/webhooks and a real provider remain tracked work.

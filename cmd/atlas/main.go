@@ -16,6 +16,7 @@ import (
 	catdb "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/catalog/adapters/postgres"
 	checkhttp "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/checkout/adapters/httpapi"
 	checkdb "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/checkout/adapters/postgres"
+	checktemporal "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/checkout/adapters/temporal"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/checkout/features/advance"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/checkout/features/start"
 	checkrun "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/checkout/runtime"
@@ -49,10 +50,10 @@ func main() {
 
 func run(ctx context.Context, logger *slog.Logger) error {
 	if len(os.Args) != 2 {
-		return errors.New("usage: atlas serve|worker|provider|migrate|check|broker-init|broker-publisher|broker-consumer|broker-status")
+		return errors.New("usage: atlas serve|worker|provider|migrate|check|broker-init|broker-publisher|broker-consumer|broker-status|temporal-worker|temporal-dispatcher|temporal-check")
 	}
 	command := os.Args[1]
-	if command != "serve" && command != "worker" && command != "migrate" && command != "check" && command != "provider" && command != "broker-init" && command != "broker-publisher" && command != "broker-consumer" && command != "broker-status" {
+	if command != "serve" && command != "worker" && command != "migrate" && command != "check" && command != "provider" && command != "broker-init" && command != "broker-publisher" && command != "broker-consumer" && command != "broker-status" && command != "temporal-worker" && command != "temporal-dispatcher" && command != "temporal-check" {
 		return errors.New("unknown atlas command")
 	}
 	if err := config.LoadLocalEnv(".env"); err != nil {
@@ -121,8 +122,18 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	checkoutStore := &checkdb.Store{Pool: pool}
 	store := &postgres.Store{Pool: pool}
 	orderStore := &orderspostgres.Store{Pool: pool}
-	orderCheckout := orderspostgres.Checkout{Store: orderStore}
+	engine := os.Getenv("ATLAS_CHECKOUT_ENGINE")
+	if engine == "" {
+		engine = "postgres"
+	}
+	if engine != "postgres" && engine != "temporal" {
+		return errors.New("unknown checkout engine")
+	}
+	orderCheckout := orderspostgres.Checkout{Store: orderStore, Engine: engine}
 	checkoutWorker := checkrun.Worker{Store: checkoutStore, Orders: orderStore, Handler: advance.Handler{Inventory: postgres.Workflow{Store: store}, Payments: paymentStore, Orders: orderCheckout}}
+	if strings.HasPrefix(command, "temporal-") {
+		return temporalCommand(ctx, logger, checkoutStore, checktemporal.Activities{Store: checkoutStore, Handler: checkoutWorker.Handler}, command)
+	}
 	fulfillmentStore := &fulfilldb.Store{Pool: pool}
 	fulfillmentWorker := fulfillrun.Worker{Store: fulfillmentStore, Orders: orderStore, Handler: fulfilldispatch.Handler{Inventory: postgres.Workflow{Store: store}}}
 	transport := os.Getenv("ATLAS_MESSAGE_TRANSPORT")

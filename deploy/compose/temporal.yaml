@@ -1,0 +1,55 @@
+services:
+  temporal:
+    image: temporalio/temporal@sha256:9844298258519ebece82b3253f1ee1fc4eb8d87b7abcc264cfb676be342c74a5
+    command: [server, start-dev, --ip, 0.0.0.0, --port, "7233", --ui-ip, 0.0.0.0, --ui-port, "8233", --db-filename, /home/temporal/temporal.db]
+    ports: ["127.0.0.1:${ATLAS_TEMPORAL_PORT:-7233}:7233", "127.0.0.1:${ATLAS_TEMPORAL_UI_PORT:-8233}:8233"]
+    environment:
+      NO_PROXY: temporal,localhost,127.0.0.1,0.0.0.0
+    volumes: ["temporal_data:/home/temporal"]
+    healthcheck:
+      test: [CMD, temporal, operator, cluster, health, --address, 127.0.0.1:7233]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    stop_grace_period: 15s
+  api:
+    environment:
+      ATLAS_CHECKOUT_ENGINE: temporal
+  temporal-dispatcher:
+    image: ddia-go-atlas:dev
+    command: [temporal-dispatcher]
+    environment: &temporal-environment
+      ATLAS_DATABASE_URL: postgresql://atlas:${POSTGRES_PASSWORD:?run make configure}@postgres:5432/atlas_dev?sslmode=disable
+      # Preserve the service hostname for NO_PROXY with gRPC 1.67.
+      ATLAS_TEMPORAL_ADDRESS: passthrough:///temporal:7233
+      ATLAS_PROVIDER_URL: http://provider:8080
+      ATLAS_PROVIDER_TOKEN: ${ATLAS_PROVIDER_TOKEN:?run make configure}
+      NO_PROXY: postgres,temporal,provider,localhost,127.0.0.1
+    init: true
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    depends_on:
+      temporal: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    stop_grace_period: 10s
+    healthcheck: &temporal-app-health
+      test: [CMD, /atlas, temporal-check]
+      interval: 3s
+      timeout: 5s
+      retries: 15
+  temporal-worker:
+    image: ddia-go-atlas:dev
+    command: [temporal-worker]
+    environment: *temporal-environment
+    init: true
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    depends_on:
+      temporal: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    stop_grace_period: 10s
+    healthcheck: *temporal-app-health
+volumes:
+  temporal_data:

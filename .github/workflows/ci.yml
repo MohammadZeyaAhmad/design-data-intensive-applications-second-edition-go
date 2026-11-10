@@ -50,7 +50,17 @@ jobs:
           ATLAS_MESSAGE_TRANSPORT=kafka make verify-live verify-orders verify-checkout verify-fulfillment verify-operations
       - name: Real Kafka acknowledgments and group rebalance
         run: make integration-kafka
+      - name: Start Temporal checkout profile
+        run: |
+          make down-kafka
+          make up-temporal
+      - name: Temporal checkout business flows and container recovery
+        run: |
+          ATLAS_CHECKOUT_ENGINE=temporal make verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery
+          make verify-temporal
+      - name: Real Temporal activities, native cancellation and old-history replay
+        run: make integration-temporal
       - name: Stop disposable stack
         if: always()
         run: |
-          if test -f .env; then make down-kafka-test down-kafka; fi
+          if test -f .env; then make down-temporal-test down-kafka-test down-temporal down-kafka; fi

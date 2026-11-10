@@ -69,7 +69,10 @@ func commerceHarness(t *testing.T) *commerce {
 func commerceTenant(t *testing.T) string {
 	id := tenant(t)
 	t.Cleanup(func() {
-		if _, err := pool.Exec(context.Background(), `DELETE FROM checkout.jobs WHERE tenant_id=$1`, id); err != nil {
+		if _, err := pool.Exec(context.Background(), `DELETE FROM checkout.temporal_wakes WHERE tenant_id=$1`, id); err != nil {
+			t.Error(err)
+		}
+		if _, err := pool.Exec(context.Background(), `DELETE FROM checkout.jobs j WHERE tenant_id=$1 AND NOT EXISTS(SELECT 1 FROM checkout.temporal_steps s WHERE s.tenant_id=j.tenant_id AND s.id=j.id)`, id); err != nil {
 			t.Error(err)
 		}
 		if _, err := pool.Exec(context.Background(), `UPDATE ordering.fulfillment_outbox SET dispatched_at=now() WHERE tenant_id=$1`, id); err != nil {

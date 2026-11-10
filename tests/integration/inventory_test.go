@@ -24,6 +24,7 @@ import (
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/identity"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/migrations"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -56,7 +57,12 @@ func TestMain(m *testing.M) {
 	database := "atlas_test_run_" + strings.ReplaceAll(nonce, "-", "")
 	if _, err = admin.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{database}.Sanitize()); err != nil {
 		admin.Close()
-		fmt.Fprintln(os.Stderr, "integration tests require local CREATE DATABASE permission")
+		var databaseError *pgconn.PgError
+		if errors.As(err, &databaseError) {
+			fmt.Fprintln(os.Stderr, "could not create isolated test database; PostgreSQL code:", databaseError.Code)
+		} else {
+			fmt.Fprintln(os.Stderr, "could not create isolated test database; check the local test binding and CREATE DATABASE permission")
+		}
 		os.Exit(1)
 	}
 	code := func() int {

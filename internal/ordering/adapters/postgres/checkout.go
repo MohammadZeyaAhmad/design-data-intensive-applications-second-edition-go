@@ -15,7 +15,10 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type Checkout struct{ Store *Store }
+type Checkout struct {
+	Store  *Store
+	Engine string
+}
 
 var _ api.Service = Checkout{}
 
@@ -60,6 +63,14 @@ func (c Checkout) Begin(ctx context.Context, tenant, order, key string, expected
 		return api.View{}, false, checkoutError(err)
 	}
 	r.CheckoutMethod = method
+	engine := c.Engine
+	if engine == "" {
+		engine = "postgres"
+	}
+	if engine != "postgres" && engine != "temporal" {
+		return api.View{}, false, api.ErrInvalid
+	}
+	r.CheckoutEngine = engine
 	id, err := identity.NewID()
 	if err != nil {
 		return api.View{}, false, err
@@ -124,11 +135,11 @@ func (c Checkout) Fail(ctx context.Context, tenant, order, id, reason string) (a
 	}
 	return api.View{}, api.ErrConflict
 }
-func enqueueCheckout(ctx context.Context, tx pgx.Tx, tenant, method string, state domain.State) error {
+func enqueueCheckout(ctx context.Context, tx pgx.Tx, tenant, method, engine string, state domain.State) error {
 	if len(method) < 1 || len(method) > 128 {
 		return domain.ErrInvalidInput
 	}
-	request := api.Requested{Metadata: envelope.From(ctx), ID: state.CheckoutID, TenantID: tenant, OrderID: state.ID, Quote: quoteView(state), PaymentMethod: method}
+	request := api.Requested{Engine: engine, Metadata: envelope.From(ctx), ID: state.CheckoutID, TenantID: tenant, OrderID: state.ID, Quote: quoteView(state), PaymentMethod: method}
 	body, err := json.Marshal(request)
 	if err != nil {
 		return err

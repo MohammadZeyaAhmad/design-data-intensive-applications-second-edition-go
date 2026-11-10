@@ -4,6 +4,8 @@ SHELL := /bin/bash
 COMPOSE_KAFKA_TEST = docker compose --env-file .env -f deploy/compose/compose.yaml -f deploy/compose/kafka.yaml -p ddia-go-broker-test
 COMPOSE_KAFKA = docker compose --env-file .env -f deploy/compose/compose.yaml -f deploy/compose/kafka.yaml -p ddia-go
 COMPOSE = docker compose --env-file .env -f deploy/compose/compose.yaml -p ddia-go
+COMPOSE_TEMPORAL = docker compose --env-file .env -f deploy/compose/compose.yaml -f deploy/compose/temporal.yaml -p ddia-go
+COMPOSE_TEMPORAL_TEST = docker compose --env-file .env -f deploy/compose/compose.yaml -f deploy/compose/temporal.yaml -p ddia-go-temporal-test
 
 configure:
 	go run ./cmd/guide configure
@@ -73,3 +75,18 @@ integration-kafka: configure
 	ATLAS_KAFKA_PORT=19093 $(COMPOSE_KAFKA_TEST) down
 down-kafka-test:
 	ATLAS_KAFKA_PORT=19093 $(COMPOSE_KAFKA_TEST) down
+
+.PHONY: up-temporal down-temporal integration-temporal down-temporal-test verify-temporal
+up-temporal: configure build
+	$(COMPOSE_TEMPORAL) up --build -d --wait
+	ATLAS_CHECKOUT_ENGINE=temporal go run ./cmd/guide wait
+down-temporal:
+	$(COMPOSE_TEMPORAL) down
+integration-temporal: configure
+	ATLAS_TEMPORAL_PORT=17233 ATLAS_TEMPORAL_UI_PORT=18233 $(COMPOSE_TEMPORAL_TEST) up -d --wait temporal
+	ATLAS_TEMPORAL_TEST_ADDRESS=127.0.0.1:17233 go test -race -tags=integration,temporal -run '^TestTemporalReal' -count=1 ./tests/integration
+	ATLAS_TEMPORAL_PORT=17233 ATLAS_TEMPORAL_UI_PORT=18233 $(COMPOSE_TEMPORAL_TEST) down
+down-temporal-test:
+	ATLAS_TEMPORAL_PORT=17233 ATLAS_TEMPORAL_UI_PORT=18233 $(COMPOSE_TEMPORAL_TEST) down
+verify-temporal:
+	ATLAS_CHECKOUT_ENGINE=temporal go run ./cmd/guide verify-temporal

@@ -16,6 +16,8 @@ The fifth increment adds versioned actor/correlation/cause/origin-request envelo
 
 The sixth increment adds a pinned optional Kafka profile for four delivery lanes, separate publication cursors, a durable transport inbox, manual offset acknowledgment, fixed partition keys, source validation, stream-scoped quarantine and audited retry. The **65 PostgreSQL integration tests** are supplemented by **three isolated real-Kafka tests** for acknowledgment loss, durable-stage checkpoint loss, database-stage failure and consumer-group rebalance. Existing business flows and the broker outage/publisher-kill drill run through Kafka.
 
+The seventh increment adds a real Temporal checkout adapter using the same business feature, immutable engine ownership, atomic activity result receipts, durable control wake signals, native cancellation compensation, bounded workflow histories and supported versioning. The suite now has **71 PostgreSQL integration tests**, **three real-Kafka tests**, and **three real-Temporal tests**, including worker replacement after five external stages and replay of an actual pre-version-marker history. Both checkout engines pass the same HTTP business outcome suite. A real server/worker SIGKILL drill preserves run identity and recovers an in-flight payment after natural lease expiry.
+
 These pieces begin several large work packages; they do not complete those packages in full.
 
 | Plan package | Current status | Remaining scope |
@@ -25,7 +27,7 @@ These pieces begin several large work packages; they do not complete those packa
 | APP-03 | In progress: warehouse receive/reserve/commit/release/expire/reverse/ship; post-lock deadlines and independent streams | Single-SKU splits, transfers and broader policies |
 | APP-04 | In progress: event append/replay, snapshots, upcasters, immutable source, request identity and versioned provenance | Broader lifecycle/archival policies, production actor identities and compatibility rollout |
 | APP-05 | In progress: idempotent simulated capture/void/refund, unknown outcomes, immutable journal | Authorization separation, partial refunds, webhooks and real-provider adapter |
-| APP-07 | In progress: durable checkout, leased steps, compensation, cancellation, outcome fences, warehouse handoff and audited scheduling controls | Returns/post-confirmation changes, generalized business repair and durable-execution alternative |
+| APP-07 | In progress: durable checkout, leased steps, compensation, cancellation, outcome fences, warehouse handoff, audited controls and a Temporal alternative | Returns/post-confirmation changes, generalized business repair and production workflow operation |
 | APP-06 | In progress: PostgreSQL/Kafka outbox publication, durable staging, manual offsets, owner receipts, per-stream quarantine and audited retry | Leased/CDC publication comparisons, broader broker operation and replay/repair tooling |
 | APP-08 | In progress: input contracts, tenant isolation, server-owned request metadata and scoped local operator capability | OIDC, authorization roles, pagination and full API contracts |
 | C03-06 | In progress: authoritative event-sourced commands and asynchronous order/inventory views | Full dashboard/fulfillment views and all-stream generation cutover |
@@ -39,13 +41,14 @@ These pieces begin several large work packages; they do not complete those packa
 | C08-08 | In progress: atomic owner receipts across database/broker acknowledgment boundaries | Full XA/acknowledgment comparisons and broader external-effect scenarios |
 | C12-01 | In progress: real durable broker delivery, duplicate/poison handling and bounded receipt/application boundaries | Queue/broker models, routing/fan-out, expiry/backpressure comparisons |
 | C12-02 | In progress: pinned Kafka profile, partition mapping, consumer groups, acknowledgment loss, rebalance and process recovery | Segmented-log broker, retention/lag/disk experiments, replicated durability and offset migration |
+| C05-05 | In progress: real Temporal workflow/activities, durable timers/signals, result receipts, versioned replay and restart evidence | Production deployment/retention, history repair and worker deployment routing |
 | Remaining packages | Planned | See the complete backlog; none is silently removed |
 
 ## Next implementation sequence
 
-1. Implement the Temporal workflow alternative and compare it with the current persisted process manager.
-2. Continue storage, replication, sharding, analytics and governance work against the full source inventory.
+1. Implement the storage-engine laboratories with crash recovery and comparative benchmarks.
+2. Continue data models, replication, sharding, analytics and governance work against the full source inventory; deepen remaining application/operations work alongside them.
 
-[Machine-readable progress](progress.json) retains all 88 package IDs. The [inventory lifecycle](../scenarios/inventory-lifecycle.json) and [Ordering](../scenarios/ordering-events.json) scenario manifests, together with [checkout/payments](../scenarios/checkout-payments.json), [warehouse/Fulfillment](../scenarios/warehouse-fulfillment.json), [workflow operations](../scenarios/workflow-operations.json), and [Kafka transport](../scenarios/kafka-transport.json), record verified behaviors and evidence paths; they do not declare the much larger associated packages complete. `make coverage-check` validates their package IDs and file references in addition to the book inventory.
+[Machine-readable progress](progress.json) retains all 88 package IDs. The [inventory lifecycle](../scenarios/inventory-lifecycle.json) and [Ordering](../scenarios/ordering-events.json) scenario manifests, together with [checkout/payments](../scenarios/checkout-payments.json), [warehouse/Fulfillment](../scenarios/warehouse-fulfillment.json), [workflow operations](../scenarios/workflow-operations.json), [Kafka transport](../scenarios/kafka-transport.json), and [Temporal checkout](../scenarios/temporal-checkout.json), record verified behaviors and evidence paths; they do not declare the much larger associated packages complete. `make coverage-check` validates their package IDs and file references in addition to the book inventory.
 
 Real payment/carrier-network integration, returns, single-SKU warehouse splits, Kubernetes deployment, backup/restore workflows, Raft, CDC, and complete storage engines remain unfinished. Current capabilities are defined by the source and recorded validation, not by the eventual project scope.

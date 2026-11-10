@@ -17,6 +17,7 @@ type Job struct {
 	CancelRequested bool
 }
 type View struct {
+	Engine               string            `json:"engine"`
 	Metadata             envelope.Metadata `json:"metadata"`
 	CancellationMetadata envelope.Metadata `json:"cancellation_metadata,omitzero"`
 	Paused               bool              `json:"paused"`

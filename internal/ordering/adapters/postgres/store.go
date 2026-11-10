@@ -122,7 +122,7 @@ func (s *Store) ExecuteAt(ctx context.Context, r ports.Request, id string, expec
 	state := order.Snapshot()
 	if state.Status == domain.CheckoutPending && expected+1 == state.Version && len(events) == 1 && events[0].Type == domain.CheckoutStarted {
 		metadata.CausationID = lastEventID
-		if err = enqueueCheckout(envelope.With(ctx, metadata), tx, r.Tenant, r.CheckoutMethod, state); err != nil {
+		if err = enqueueCheckout(envelope.With(ctx, metadata), tx, r.Tenant, r.CheckoutMethod, r.CheckoutEngine, state); err != nil {
 			return domain.State{}, false, err
 		}
 	}

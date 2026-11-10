@@ -32,9 +32,11 @@ The response is 202 with a checkout UUID, order UUID, accepted price snapshot an
 
 | Method/path | Meaning |
 |---|---|
-| `GET /v1/checkouts/{id}` | Current workflow stage, amount/currency, reason, retry count, cancellation request, pause/control version, provenance and update time |
+| `GET /v1/checkouts/{id}` | Immutable engine, current workflow stage, amount/currency, reason, retry count, cancellation request, pause/control version, provenance and update time |
 | `POST /v1/checkouts/{id}/cancel` | Empty body; idempotently request cancellation of a nonterminal workflow; 202 acknowledges the request |
 | `GET /v1/orders/{id}` | Authoritative domain state, including immutable accepted pricing and eventual confirmation/failure |
+
+The server chooses `postgres` or `temporal` at acceptance. The checkout view exposes that immutable `engine`; it is not an HTTP input. Retrying accepted checkout after a runtime-profile change keeps its original owner. See the [Temporal profile](TEMPORAL.md) for durable scheduling and replay.
 
 The workflow record is created asynchronously, so its first read may return 404 after acceptance. In the [Kafka profile](MESSAGING.md), broker publication/receipt is another durable handoff; the job can remain absent during a broker outage even though the source order accepted checkout. Nonterminal phases are `reserving`, `capturing`, `allocating`, `confirming`, and `compensating`. Final workflow states are `confirmed`, `failed`, and `cancelled`.
 

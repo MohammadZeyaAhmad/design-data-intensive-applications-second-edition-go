@@ -55,6 +55,7 @@ make down
 - Normalized Catalog brands/details with ordered variants, category memberships and JSONB attributes; relational/document/flat/column-family comparisons with generated sqlc and real GORM mappings.
 - Warehouse/supplier property graphs in Go, recursive PostgreSQL and real Neo4j/Cypher, with full reachability, bounded simple/cheapest paths, tenant fences and actual query plans.
 - RDF triples, real SPARQL/Fuseki and a completed bounded positive Datalog evaluator, compared with Go graphs and recursive SQL across updates/deletion.
+- Authenticated GraphQL read composition over published Ordering/Catalog contracts, with batched nested reads, signed keyset pagination, query cost limits and REST parity.
 - Independent Go lab showing a lost-update schedule, connected to the real database contention tests.
 
 Inventory state is authoritative in PostgreSQL tables; Ordering state is derived from its immutable event stream. A placed order currently records SKU/quantity intent. An order remains unpriced intent until checkout accepts a Catalog quote; captured payment and committed stock are required for confirmation. The local dispatcher uses PostgreSQL. Catalog price authority, checkout capture/compensation and a two-leg payment journal now run through published contracts; warehouse sourcing and a separate Fulfillment context now carry confirmed allocations through picking, packing, durable dispatch and delivery recording. Kafka transport is now executable; CDC, replicated broker operation, full telemetry and the remaining laboratories are tracked in the backlog.
@@ -90,6 +91,8 @@ Start with the [inventory API](docs/API.md), [Ordering API](docs/ORDERING_API.md
 
 The [semantic graph guide](docs/SEMANTIC_GRAPHS.md) extends those warehouse/supplier fixtures with RDF identity, actual SPARQL, Turtle interchange and positive Datalog fixed points. Five backends agree on membership through cycles, updates and deletion.
 
+The [GraphQL guide](docs/GRAPHQL.md) adds a read endpoint over the existing Ordering/Catalog contexts. Collection prefetch avoids per-line queries; explicit tenant identity, signed cursors, query budgets and precise version/money values preserve the read contract.
+
 ## Full-book scope remains mandatory
 
 The [index-layout guide](docs/INDEXES.md) connects transactional index maintenance, controlled engine comparisons and actual PostgreSQL plans. Its [benchmark protocol](benchmarks/storage/README.md) records cache/device limits and the remaining experiments.
@@ -121,6 +124,9 @@ make verify ID=C03-04    # scoped semantic-graph verification; Docker required
 make up-rdf             # independent PostgreSQL/Fuseki services on 18433/18303
 go run ./cmd/guide verify-semantic-services
 make down-rdf           # retains its own data volumes
+make verify-graphql     # schema/auth/cost checks and real SQL batching; local test DB required
+make verify ID=C03-05    # scoped GraphQL/read-composition verification
+make verify-graphql-live # real HTTP composition on the running API/worker profile
 make verify-storage     # LSM/map oracle, power-loss model, real kills and bbolt comparison
 make verify ID=C04-01    # scoped verification of the LSM package
 make verify-btree       # B+ tree structure, redo/crash tests and bbolt comparison

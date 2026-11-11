@@ -1,0 +1,40 @@
+{
+  "id": "graphql-reads",
+  "status": "verified",
+  "work_packages": ["APP-01", "APP-08", "C03-05", "C03-06"],
+  "commands": ["make verify ID=C03-05", "make verify-graphql", "go run ./cmd/guide verify-graphql", "make graphql-demo", "make graphql-postgres", "make verify-graphql-live"],
+  "assertions": [
+    "actual GraphQL schema validation/execution composes published context read contracts without private context imports",
+    "one, ten and one hundred lines use three batched source reads and match every selected REST-composed value",
+    "real PostgreSQL statement counts are 3/3/3 versus 3/21/201 for the existing single-resource REST baseline",
+    "tenant-bound SQL, request-local futures and returned owner checks preserve nested product/brand identity",
+    "missing and failed results are memoized within a request, with new source revisions visible in the next request",
+    "aliases, fragments and deprecated price names cannot bypass the canonical field permission",
+    "signed resource/tenant/version cursors paginate by stable UUID identity and reject tampering or foreign scopes before SQL",
+    "stale projections expose their actual version, while frozen accepted order prices remain independent of current Catalog prices",
+    "decimal-string Long values preserve signed int64 precision and reject ambiguous numeric input",
+    "depth, root, selection, cardinality and text-weight bounds reject expensive operations before source reads",
+    "schema deprecation preserves the old price selection and error/null behavior is explicit",
+    "real API/worker HTTP checks cover current composition, tenant scope, pagination, request freshness and read-only operation",
+    "bounded query fuzzing, architecture checks and separate application/lab builds retain the original project boundaries"
+  ],
+  "evidence": [
+    "api/graphql/schema.graphql",
+    "api/graphql/server_test.go",
+    "api/graphql/budget_test.go",
+    "api/graphql/batch.go",
+    "api/graphql/budget.go",
+    "contracts/catalog/reads.go",
+    "contracts/ordering/reads.go",
+    "internal/catalog/adapters/postgres/reads.go",
+    "internal/ordering/adapters/postgres/reads.go",
+    "tests/integration/graphql_test.go",
+    "tests/architecture/imports_test.go",
+    "benchmarks/graphql/compare.go",
+    "labs/ch03/graphql/order-composition.graphql",
+    "cmd/guide/graphql.go",
+    "docs/GRAPHQL.md",
+    "docs/chapters/ch03/graphql.md",
+    "docs/VALIDATION.md"
+  ]
+}

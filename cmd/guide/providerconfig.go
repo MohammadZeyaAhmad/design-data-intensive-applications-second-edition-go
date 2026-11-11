@@ -52,6 +52,13 @@ func providerConfig() error {
 		}
 		text += "ATLAS_RDF_PASSWORD=" + password + "\n"
 	}
+	if !strings.Contains("\n"+text, "\nATLAS_GRAPHQL_CURSOR_KEY=") {
+		key, err := secret()
+		if err != nil {
+			return err
+		}
+		text += "ATLAS_GRAPHQL_CURSOR_KEY=" + key + "\n"
+	}
 	if text == string(b) {
 		return nil
 	}

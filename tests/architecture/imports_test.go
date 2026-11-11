@@ -55,3 +55,33 @@ func TestDomainAndFeatureDependencyBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestGraphQLCompositionUsesPublishedContextContracts(t *testing.T) {
+	_, file, _, _ := runtime.Caller(0)
+	root := filepath.Join(filepath.Dir(file), "../..")
+	err := filepath.WalkDir(filepath.Join(root, "api/graphql"), func(path string, d fs.DirEntry, e error) error {
+		if e != nil {
+			return e
+		}
+		if d.IsDir() || !strings.HasSuffix(path, ".go") {
+			return nil
+		}
+		f, e := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)
+		if e != nil {
+			return e
+		}
+		for _, i := range f.Imports {
+			imp, _ := strconv.Unquote(i.Path.Value)
+			if strings.Contains(imp, "/internal/") && !strings.Contains(imp, "/internal/platform/") {
+				t.Errorf("GraphQL imports private context code: %s", imp)
+			}
+			if strings.Contains(imp, "/labs/") || strings.Contains(imp, "/benchmarks/") {
+				t.Errorf("production GraphQL imports an experiment: %s", imp)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}

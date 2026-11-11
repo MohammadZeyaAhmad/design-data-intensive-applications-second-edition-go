@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	graphqlhttp "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/api/graphql"
 	api "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/messaging"
 	cathttp "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/catalog/adapters/httpapi"
 	catdb "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/catalog/adapters/postgres"
@@ -187,6 +188,11 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		address = "127.0.0.1:8080"
 	}
 	mux := http.NewServeMux()
+	graphqlHTTP, err := graphqlhttp.New(graphqlhttp.Options{Orders: orderStore, Catalog: catalogStore, TenantKeys: keys, CursorKey: []byte(os.Getenv("ATLAS_GRAPHQL_CURSOR_KEY"))})
+	if err != nil {
+		return err
+	}
+	mux.Handle("/v1/graphql", graphqlHTTP)
 	orderHTTP := ordershttp.New(ordershttp.Options{Store: orderStore, TenantKeys: keys, Logger: logger})
 	mux.Handle("/v1/orders", orderHTTP)
 	mux.Handle("/v1/orders/", orderHTTP)

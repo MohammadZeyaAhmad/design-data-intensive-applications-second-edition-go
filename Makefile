@@ -38,13 +38,15 @@ verify-orders:
 verify-recovery:
 	go run ./cmd/guide verify-recovery
 ifeq ($(strip $(ID)),)
-verify: test integration coverage-check lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live
+verify: test integration coverage-check lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic graphql-demo graphql-postgres storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
 else ifeq ($(ID),C03-01)
 verify: verify-models
 else ifeq ($(ID),C03-03)
 verify: verify-graph
 else ifeq ($(ID),C03-04)
 verify: verify-semantic
+else ifeq ($(ID),C03-05)
+verify: verify-graphql
 else ifeq ($(ID),C04-01)
 verify: verify-storage
 else ifeq ($(ID),C04-02)
@@ -57,7 +59,7 @@ else ifeq ($(ID),C04-05)
 verify: verify-search
 else
 verify:
-	@echo 'Scoped verification supports ID=C03-01, C03-03, C03-04 and C04-01 through C04-05; other plan IDs remain future interfaces.' >&2
+	@echo 'Scoped verification supports ID=C03-01, C03-03 through C03-05 and C04-01 through C04-05; other plan IDs remain future interfaces.' >&2
 	@exit 2
 endif
 demo:
@@ -75,7 +77,7 @@ coverage-check:
 lab:
 	cd labs && go run ./cmd/lab lost-update
 fmt:
-	gofmt -w cmd contracts internal migrations tests labs benchmarks
+	gofmt -w cmd contracts internal migrations tests api labs benchmarks
 
 verify-fulfillment:
 	go run ./cmd/guide verify-fulfillment
@@ -212,3 +214,14 @@ up-rdf: configure prepare-rdf-runtime
 	$(COMPOSE_RDF) up --build -d --wait
 down-rdf:
 	$(COMPOSE_RDF) down
+
+.PHONY: graphql-test graphql-demo graphql-postgres verify-graphql verify-graphql-live
+graphql-test:
+	go test -race -count=1 ./api/graphql ./tests/architecture
+graphql-demo:
+	go run ./benchmarks/graphql/cmd -output artifacts/graphql.json
+graphql-postgres:
+	ATLAS_GRAPHQL_REPORT="$(CURDIR)/artifacts/graphql-postgres.json" go test -race -tags=integration -run '^TestGraphQL' -count=1 ./tests/integration
+verify-graphql: coverage-check graphql-test graphql-demo graphql-postgres
+verify-graphql-live:
+	go run ./cmd/guide verify-graphql-live

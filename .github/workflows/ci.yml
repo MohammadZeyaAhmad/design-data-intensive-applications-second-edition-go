@@ -32,7 +32,7 @@ jobs:
             go.sum
             labs/go.sum
       - name: Formatting
-        run: test -z "$(gofmt -l cmd contracts internal migrations tests labs benchmarks)"
+        run: test -z "$(gofmt -l cmd contracts internal migrations tests api labs benchmarks)"
       - name: Reproduce pinned sqlc catalog mappings
         run: make check-catalog-generated
       - name: Application and lab tests, including race detection
@@ -43,6 +43,8 @@ jobs:
         run: make coverage-check lab models-demo graph-demo semantic-demo storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans storage-bench
       - name: Real catalog model queries, plans and ORM comparison
         run: make models-postgres
+      - name: GraphQL composition, native batching and REST parity
+        run: make graphql-demo graphql-postgres
       - name: Real pgvector profile, exact recall and search application tests
         run: make integration-search-vector
       - name: Real graph SQL and Neo4j profile, tenant fences and bounded paths
@@ -73,6 +75,8 @@ jobs:
         run: cd labs && go test -run '^$' -fuzz '^FuzzSchemaOnRead$' -fuzztime=5s -parallel=2 ./ch03/models
       - name: Bounded graph scalar properties and traversal inputs
         run: cd labs && go test -run '^$' -fuzz '^FuzzPropertiesAndBounds$' -fuzztime=5s -parallel=2 ./ch03/property-graph
+      - name: Bounded GraphQL query cost and fragment expansion fuzzing
+        run: go test -run '^$' -fuzz '^FuzzQueryBudget$' -fuzztime=5s -parallel=2 ./api/graphql
       - name: Retain storage comparison report
         uses: actions/upload-artifact@v4
         with:
@@ -93,6 +97,8 @@ jobs:
             artifacts/graph-services.json
             artifacts/semantic.json
             artifacts/semantic-services.json
+            artifacts/graphql.json
+            artifacts/graphql-postgres.json
       - name: Verify application builds independently of the lab workspace
         run: |
           GOWORK=off go build ./cmd/atlas ./cmd/guide ./cmd/admin
@@ -100,13 +106,13 @@ jobs:
       - name: Start disposable API and worker stack
         run: make up
       - name: Live HTTP contention and restart recovery
-        run: make verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live
+        run: make verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
       - name: Start Kafka transport profile
         run: make up-kafka
       - name: Kafka transport and existing business flows
         run: |
           make verify-kafka
-          ATLAS_MESSAGE_TRANSPORT=kafka make verify-live verify-orders verify-checkout verify-fulfillment verify-operations
+          ATLAS_MESSAGE_TRANSPORT=kafka make verify-live verify-orders verify-checkout verify-fulfillment verify-operations verify-graphql-live
       - name: Real Kafka acknowledgments and group rebalance
         run: make integration-kafka
       - name: Start Temporal checkout profile
@@ -115,7 +121,7 @@ jobs:
           make up-temporal
       - name: Temporal checkout business flows and container recovery
         run: |
-          ATLAS_CHECKOUT_ENGINE=temporal make verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery
+          ATLAS_CHECKOUT_ENGINE=temporal make verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-graphql-live
           make verify-temporal
       - name: Real Temporal activities, native cancellation and old-history replay
         run: make integration-temporal

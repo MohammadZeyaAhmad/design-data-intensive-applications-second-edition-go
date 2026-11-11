@@ -65,3 +65,5 @@ Payment references remain in operational scheduling/intent records; they are abs
 ## Catalog detail content
 
 The [data-model guide](MODELS.md) documents tenant-scoped brand and product-detail APIs, expected content revisions, variant/category replacement, JSONB attributes and generated reads. Brand/detail changes preserve existing price and quote authority. `make verify-models-live` checks these contracts through the running API.
+
+The [GraphQL read endpoint](GRAPHQL.md) batches current product/detail reads while retaining the order projection's frozen accepted price separately. It does not change quote or checkout authority.

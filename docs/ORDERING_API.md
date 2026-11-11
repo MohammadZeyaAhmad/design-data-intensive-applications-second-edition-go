@@ -39,3 +39,5 @@ Rebuild replaces one order's projection, records receipts for its prefix and adv
 Placement event schema 1 (`items` with `qty`) is upcast to schema 2 (`lines` with `quantity`) during replay. Stored facts remain unchanged. Unknown event schemas fail authoritative reads with 503 `unsupported_event_schema`. Consumers retry and then quarantine their stream head; they never skip it. Upgrade the consumer to understand the event before rebuilding. Rebuild also fails if full history is unsupported.
 
 Ordinary SQL updates/deletes of events are rejected by a database trigger. Deployment still needs the planned separate least-privilege application and migration roles; the local operator role is intentionally powerful for the development suite.
+
+The [GraphQL read endpoint](GRAPHQL.md) composes these eventual projections with current Catalog data, with explicit projection versions and separate frozen accepted prices. REST command authority and transition rules remain unchanged.

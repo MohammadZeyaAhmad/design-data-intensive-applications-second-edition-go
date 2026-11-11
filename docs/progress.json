@@ -92,7 +92,7 @@
     },
     {
       "id": "C03-05",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "id": "C03-06",
@@ -370,6 +370,7 @@
     "scenarios/search-discovery.json",
     "scenarios/catalog-models.json",
     "scenarios/property-graphs.json",
-    "scenarios/semantic-graphs.json"
+    "scenarios/semantic-graphs.json",
+    "scenarios/graphql-reads.json"
   ]
 }

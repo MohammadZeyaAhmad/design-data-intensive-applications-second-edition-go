@@ -1,0 +1,47 @@
+schema { query: Query }
+
+"A signed 64-bit integer encoded as a decimal JSON string, preserving precision."
+scalar Long
+
+type Query {
+  order(id: ID!, minVersion: Long): Order
+  orders(first: Int! = 10, after: String): OrderConnection!
+  product(sku: String!): Product
+}
+type OrderConnection { edges: [OrderEdge!]!, pageInfo: PageInfo! }
+type OrderEdge { cursor: String!, node: Order! }
+type PageInfo { endCursor: String, hasNextPage: Boolean! }
+"An eventual projection, never authority for command decisions."
+type Order {
+  id: ID!
+  version: Long!
+  status: String!
+  currency: String
+  lines: [OrderLine!]!
+}
+type OrderLine {
+  sku: String!
+  quantity: Int!
+  "The current Catalog product, which can differ from accepted order pricing."
+  product: Product
+  frozenUnitPriceMinor: Long
+  frozenPriceVersion: Long
+}
+type Product {
+  sku: String!
+  name: String!
+  version: Long!
+  currency: String!
+  unitPriceMinor: Long
+  priceMinor: Long @deprecated(reason: "Use unitPriceMinor; the value and authorization are identical.")
+  details: ProductDetails
+}
+type ProductDetails {
+  revision: Long!
+  description: String!
+  brand: Brand!
+  categories: [String!]!
+  variants: [Variant!]!
+}
+type Brand { id: String!, name: String! }
+type Variant { code: String!, label: String! }

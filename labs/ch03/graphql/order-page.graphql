@@ -1,0 +1,6 @@
+query OrderPage($first: Int! = 2, $after: String) {
+  orders(first: $first, after: $after) {
+    edges { cursor node { id version status lines { sku quantity } } }
+    pageInfo { endCursor hasNextPage }
+  }
+}

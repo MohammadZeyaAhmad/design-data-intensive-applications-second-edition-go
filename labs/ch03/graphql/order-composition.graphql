@@ -1,0 +1,25 @@
+query OrderComposition($id: ID!) {
+  order(id: $id) {
+    id
+    version
+    status
+    lines {
+      sku
+      quantity
+      product {
+        sku
+        name
+        version
+        currency
+        unitPriceMinor
+        details {
+          revision
+          description
+          brand { id name }
+          categories
+          variants { code label }
+        }
+      }
+    }
+  }
+}

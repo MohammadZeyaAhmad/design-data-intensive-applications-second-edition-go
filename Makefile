@@ -9,6 +9,7 @@ COMPOSE_TEMPORAL_TEST = docker compose --env-file .env -f deploy/compose/compose
 COMPOSE_SEARCH = docker compose --env-file .env -f deploy/compose/compose.yaml -f deploy/compose/search-vector.yaml -p ddia-go-search
 COMPOSE_SEARCH_TEST = docker compose --env-file .env -f deploy/compose/search-vector-test.yaml -p ddia-go-search-test
 COMPOSE_GRAPH = docker compose --env-file .env -f deploy/compose/graph/compose.yaml -p ddia-go-graph
+COMPOSE_RDF = docker compose --env-file .env -f deploy/compose/rdf/compose.yaml -p ddia-go-rdf
 
 configure:
 	go run ./cmd/guide configure
@@ -37,11 +38,13 @@ verify-orders:
 verify-recovery:
 	go run ./cmd/guide verify-recovery
 ifeq ($(strip $(ID)),)
-verify: test integration coverage-check lab models-demo models-postgres graph-demo integration-graph storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live
+verify: test integration coverage-check lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live
 else ifeq ($(ID),C03-01)
 verify: verify-models
 else ifeq ($(ID),C03-03)
 verify: verify-graph
+else ifeq ($(ID),C03-04)
+verify: verify-semantic
 else ifeq ($(ID),C04-01)
 verify: verify-storage
 else ifeq ($(ID),C04-02)
@@ -54,7 +57,7 @@ else ifeq ($(ID),C04-05)
 verify: verify-search
 else
 verify:
-	@echo 'Scoped verification supports ID=C03-01, C03-03 and C04-01 through C04-05; other plan IDs remain future interfaces.' >&2
+	@echo 'Scoped verification supports ID=C03-01, C03-03, C03-04 and C04-01 through C04-05; other plan IDs remain future interfaces.' >&2
 	@exit 2
 endif
 demo:
@@ -194,3 +197,18 @@ up-graph: configure
 	$(COMPOSE_GRAPH) up -d --wait
 down-graph:
 	$(COMPOSE_GRAPH) down
+
+.PHONY: prepare-rdf-runtime semantic-test semantic-demo integration-semantic verify-semantic up-rdf down-rdf
+prepare-rdf-runtime:
+	bash tools/prepare-rdf-runtime.sh
+semantic-test:
+	cd labs && go test -race -count=1 ./ch03/semantic-graph/...
+semantic-demo:
+	cd labs && go run ./cmd/lab semantic -output ../artifacts/semantic.json
+integration-semantic: configure prepare-rdf-runtime
+	@trap '$(COMPOSE_RDF) down' EXIT; $(COMPOSE_RDF) up --build -d --wait && go run ./cmd/guide verify-semantic-services
+verify-semantic: coverage-check semantic-test semantic-demo integration-semantic
+up-rdf: configure prepare-rdf-runtime
+	$(COMPOSE_RDF) up --build -d --wait
+down-rdf:
+	$(COMPOSE_RDF) down

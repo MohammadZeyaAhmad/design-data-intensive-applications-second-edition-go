@@ -54,6 +54,7 @@ make down
 - Tenant-scoped Search context with English full-text/trigram/spatial APIs, versioned embeddings and an optional pgvector profile; direct inverted/KD/HNSW Go implementations with exact recall comparisons.
 - Normalized Catalog brands/details with ordered variants, category memberships and JSONB attributes; relational/document/flat/column-family comparisons with generated sqlc and real GORM mappings.
 - Warehouse/supplier property graphs in Go, recursive PostgreSQL and real Neo4j/Cypher, with full reachability, bounded simple/cheapest paths, tenant fences and actual query plans.
+- RDF triples, real SPARQL/Fuseki and a completed bounded positive Datalog evaluator, compared with Go graphs and recursive SQL across updates/deletion.
 - Independent Go lab showing a lost-update schedule, connected to the real database contention tests.
 
 Inventory state is authoritative in PostgreSQL tables; Ordering state is derived from its immutable event stream. A placed order currently records SKU/quantity intent. An order remains unpriced intent until checkout accepts a Catalog quote; captured payment and committed stock are required for confirmation. The local dispatcher uses PostgreSQL. Catalog price authority, checkout capture/compensation and a two-leg payment journal now run through published contracts; warehouse sourcing and a separate Fulfillment context now carry confirmed allocations through picking, packing, durable dispatch and delivery recording. Kafka transport is now executable; CDC, replicated broker operation, full telemetry and the remaining laboratories are tracked in the backlog.
@@ -87,6 +88,8 @@ docs/                             Guide, decisions, status, and full-book plan
 
 Start with the [inventory API](docs/API.md), [Ordering API](docs/ORDERING_API.md), [commerce contracts](docs/COMMERCE_API.md), [event-sourcing walkthrough](docs/chapters/ch03/event-sourcing.md), [checkout walkthrough](docs/chapters/ch05/checkout-workflow.md), and [Fulfillment contracts](docs/FULFILLMENT_API.md), and [provenance/operator controls](docs/OPERATIONS.md), and [Kafka transport](docs/MESSAGING.md), and [Temporal durable execution](docs/TEMPORAL.md), and [storage engines](docs/STORAGE.md), and the [B+ tree](docs/BTREE.md). See [validation](docs/VALIDATION.md) for measured evidence and limitations. Machine-readable implementation progress is in [docs/progress.json](docs/progress.json).
 
+The [semantic graph guide](docs/SEMANTIC_GRAPHS.md) extends those warehouse/supplier fixtures with RDF identity, actual SPARQL, Turtle interchange and positive Datalog fixed points. Five backends agree on membership through cycles, updates and deletion.
+
 ## Full-book scope remains mandatory
 
 The [index-layout guide](docs/INDEXES.md) connects transactional index maintenance, controlled engine comparisons and actual PostgreSQL plans. Its [benchmark protocol](benchmarks/storage/README.md) records cache/device limits and the remaining experiments.
@@ -113,6 +116,11 @@ make verify ID=C03-03    # scoped graph verification, including tenant bridges a
 make up-graph           # independent graph services on 17433/17687/17474
 go run ./cmd/guide verify-graph-services
 make down-graph         # stops only the graph profile, retaining its volumes
+make verify-semantic    # RDF/SPARQL/Datalog, Go graph and isolated recursive SQL comparison
+make verify ID=C03-04    # scoped semantic-graph verification; Docker required
+make up-rdf             # independent PostgreSQL/Fuseki services on 18433/18303
+go run ./cmd/guide verify-semantic-services
+make down-rdf           # retains its own data volumes
 make verify-storage     # LSM/map oracle, power-loss model, real kills and bbolt comparison
 make verify ID=C04-01    # scoped verification of the LSM package
 make verify-btree       # B+ tree structure, redo/crash tests and bbolt comparison

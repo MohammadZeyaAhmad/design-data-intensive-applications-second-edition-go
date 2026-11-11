@@ -1,0 +1,37 @@
+{
+  "id": "semantic-graphs",
+  "status": "verified",
+  "work_packages": ["APP-01", "C03-04"],
+  "commands": ["make verify-semantic", "make verify ID=C03-04", "go run ./cmd/guide verify-semantic", "make semantic-demo", "make integration-semantic", "go run ./cmd/guide verify-semantic-services"],
+  "assertions": [
+    "Go adjacency, indexed RDF, positive Datalog, actual recursive SQL and Fuseki SPARQL agree across three fixture phases",
+    "finite membership closure terminates on cycles and distinguishes star, plus, isolated and missing starts",
+    "stable tenant-qualified IRIs preserve logical identity while fresh named graphs isolate runs",
+    "RDF literal identity, language tags, Unicode escapes and document-local blank labels have explicit semantics",
+    "actual Turtle import demonstrates prefix independence and separate blank scopes",
+    "native SPARQL bag and DISTINCT results preserve their two-versus-one distinction for parallel edges",
+    "reference and semi-naive Datalog agree on cycles, mutual and nonlinear recursion and typed constants",
+    "unsafe heads, arity conflicts, unsupported negation/functions/aggregation and exceeded budgets fail explicitly",
+    "property updates and deletion republish source facts and recompute derived membership",
+    "filtered SPARQL projection checks edge and both endpoint owners and rejects misplaced foreign bridges",
+    "native endpoints require authentication and owned cleanup preserves another run's named graphs",
+    "default reports retain 378 Go and 630 cross-backend samples, fifteen publication timings and four actual SQL plans",
+    "grammar/codec fuzzing, volatile Go state, resource limits and production/inference boundaries are documented"
+  ],
+  "evidence": [
+    "labs/ch03/semantic-graph/semantic_test.go",
+    "labs/ch03/semantic-graph/datalog/datalog_test.go",
+    "labs/ch03/semantic-graph/rdf/rdf_test.go",
+    "labs/ch03/semantic-graph/sparql/client_test.go",
+    "labs/ch03/semantic-graph/scenario.go",
+    "labs/ch03/semantic-graph/native/scenario.go",
+    "labs/ch03/semantic-graph/integration/semantic_test.go",
+    "labs/ch03/semantic-graph/postgres/store.go",
+    "labs/ch03/semantic-graph/sparql/store.go",
+    "deploy/compose/rdf/compose.yaml",
+    "tools/prepare-rdf-runtime.sh",
+    "docs/SEMANTIC_GRAPHS.md",
+    "docs/chapters/ch03/semantic-graphs.md",
+    "docs/VALIDATION.md"
+  ]
+}

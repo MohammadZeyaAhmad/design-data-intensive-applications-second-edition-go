@@ -45,6 +45,13 @@ func providerConfig() error {
 		}
 		text += "ATLAS_GRAPH_PASSWORD=" + password + "\n"
 	}
+	if !strings.Contains("\n"+text, "\nATLAS_RDF_PASSWORD=") {
+		password, err := secret()
+		if err != nil {
+			return err
+		}
+		text += "ATLAS_RDF_PASSWORD=" + password + "\n"
+	}
 	if text == string(b) {
 		return nil
 	}

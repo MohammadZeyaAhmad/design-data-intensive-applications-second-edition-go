@@ -1,0 +1,38 @@
+name: ddia-go-rdf
+services:
+  postgres:
+    image: postgres@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4
+    command: [postgres, -c, max_wal_size=128MB, -c, min_wal_size=32MB, -c, checkpoint_timeout=30s]
+    environment:
+      POSTGRES_USER: atlas
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run make configure}
+      POSTGRES_DB: atlas_test
+    ports: ["127.0.0.1:${ATLAS_RDF_POSTGRES_PORT:-18433}:5432"]
+    volumes: [rdf_postgres:/var/lib/postgresql]
+    healthcheck:
+      test: [CMD-SHELL, 'PGPASSWORD="$${POSTGRES_PASSWORD}" psql -h 127.0.0.1 -U atlas -d atlas_test -Atqc "SELECT 1"']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  fuseki:
+    image: ddia-go-fuseki:5.6.0
+    build:
+      context: ../../../artifacts/rdf-runtime
+      dockerfile: ../../deploy/compose/rdf/Dockerfile
+    environment:
+      ATLAS_RDF_PASSWORD: ${ATLAS_RDF_PASSWORD:?run make configure}
+      ATLAS_RDF_URL: http://127.0.0.1:3030/routes
+    ports: ["127.0.0.1:${ATLAS_RDF_HTTP_PORT:-18303}:3030"]
+    volumes: [rdf_data:/data]
+    read_only: true
+    tmpfs: [/tmp:rw,size=67108864,mode=1777]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    healthcheck:
+      test: [CMD, /app/health]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+volumes:
+  rdf_postgres:
+  rdf_data:

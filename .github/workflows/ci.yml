@@ -33,12 +33,16 @@ jobs:
             labs/go.sum
       - name: Formatting
         run: test -z "$(gofmt -l cmd contracts internal migrations tests labs benchmarks)"
+      - name: Reproduce pinned sqlc catalog mappings
+        run: make check-catalog-generated
       - name: Application and lab tests, including race detection
         run: make test
       - name: Real PostgreSQL concurrency and failure tests
         run: make integration
       - name: Source inventory and executable storage comparisons
-        run: make coverage-check lab storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans storage-bench
+        run: make coverage-check lab models-demo storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans storage-bench
+      - name: Real catalog model queries, plans and ORM comparison
+        run: make models-postgres
       - name: Real pgvector profile, exact recall and search application tests
         run: make integration-search-vector
       - name: Bounded storage record fuzzing
@@ -56,6 +60,8 @@ jobs:
           go test -run '^$' -fuzz '^FuzzExpressionParser$' -fuzztime=5s -parallel=2 ./ch04/columnstore
       - name: Bounded search tokenization and numeric fuzzing
         run: cd labs && go test -run '^$' -fuzz '^FuzzTokenizerAndCosineBounds$' -fuzztime=5s -parallel=2 ./ch04/search
+      - name: Bounded model schema migration fuzzing
+        run: cd labs && go test -run '^$' -fuzz '^FuzzSchemaOnRead$' -fuzztime=5s -parallel=2 ./ch03/models
       - name: Retain storage comparison report
         uses: actions/upload-artifact@v4
         with:
@@ -70,6 +76,8 @@ jobs:
             artifacts/columnstore.json
             artifacts/search.json
             artifacts/search-pgvector.json
+            artifacts/models.json
+            artifacts/models-postgres.json
       - name: Verify application builds independently of the lab workspace
         run: |
           GOWORK=off go build ./cmd/atlas ./cmd/guide ./cmd/admin
@@ -77,7 +85,7 @@ jobs:
       - name: Start disposable API and worker stack
         run: make up
       - name: Live HTTP contention and restart recovery
-        run: make verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live
+        run: make verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live
       - name: Start Kafka transport profile
         run: make up-kafka
       - name: Kafka transport and existing business flows

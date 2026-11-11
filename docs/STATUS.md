@@ -30,6 +30,8 @@ The twelfth increment adds tenant-local inverted text/position indexes, bounded 
 
 These pieces begin several large work packages; they do not complete those packages in full.
 
+The thirteenth increment adds normalized Catalog brands/details, ordered variants, category memberships and bounded JSONB attributes, with independent content revisions, immutable history and generated sqlc reads. Equivalent relational/flat/document/column-family experiments demonstrate copied-name anomalies, repair, schema-on-read migration and actual nested-update buffer/allocation costs. Actual sqlc/GORM mappings return identical details with 1/37/4 statements for a twelve-product fixture. Four new database tests bring the normal suite to **79 PostgreSQL tests**, alongside the existing **three pgvector, three Kafka and three Temporal tests**. The wide-column exercises model access patterns using bbolt/PostgreSQL; they do not implement a distributed wide-column engine.
+
 | Plan package | Current status | Remaining scope |
 |---|---|---|
 | APP-01 | In progress: modules, local commands, source inventory, Compose, CI | Full guide/scenario manifests, deterministic harness, all profiles |
@@ -41,6 +43,7 @@ These pieces begin several large work packages; they do not complete those packa
 | APP-06 | In progress: PostgreSQL/Kafka outbox publication, durable staging, manual offsets, owner receipts, per-stream quarantine and audited retry | Leased/CDC publication comparisons, broader broker operation and replay/repair tooling |
 | APP-08 | In progress: input contracts, tenant isolation, server-owned request metadata and scoped local operator capability | OIDC, authorization roles, pagination and full API contracts |
 | C03-06 | In progress: authoritative event-sourced commands and asynchronous order/inventory views | Full dashboard/fulfillment views and all-stream generation cutover |
+| C03-01 | In progress: normalized Catalog detail API; shared references, flat/JSONB/family query equivalence, anomaly repair, schema drift/locality and actual sqlc/GORM comparison | Complete semantic audit, broader customer/application boundaries, schema rollout/backfill, larger scale and operation |
 | C05-03 | In progress: additive migrations and legacy placement upcasting | Mixed-version rollout/backfill/contract compatibility suite |
 | C12-04 | In progress: immutable order facts and deterministic replay | Full retention/archive/privacy policies and CDC comparisons |
 | C13-02 | In progress: one-order rebuild, snapshot fallback and live resumption | Shadow generations and batch/stream/all-stream convergence |
@@ -61,12 +64,12 @@ These pieces begin several large work packages; they do not complete those packa
 
 ## Next implementation sequence
 
-1. Implement C03-01 relational/document/wide-column catalog models with equivalent query fixtures, update anomalies and measured repair/index choices.
-2. Deepen the storage/search semantic audits, formats, scale, model lifecycle and cache/device experiments; complete outstanding application/operations work alongside them.
+1. Implement C03-03 property graphs, Cypher and recursive SQL using connected catalog/customer relationships, then C03-04 RDF/SPARQL/Datalog comparisons.
+2. Deepen model/storage/search semantic audits, schema rollout, formats, scale, model lifecycle and cache/device experiments; complete outstanding application/operations work alongside them.
 3. Continue the remaining data models, replication, sharding, analytics and governance packages against the complete source inventory.
 
 [Machine-readable progress](progress.json) retains all 88 package IDs. The [inventory lifecycle](../scenarios/inventory-lifecycle.json) and [Ordering](../scenarios/ordering-events.json) scenario manifests, together with [checkout/payments](../scenarios/checkout-payments.json), [warehouse/Fulfillment](../scenarios/warehouse-fulfillment.json), [workflow operations](../scenarios/workflow-operations.json), [Kafka transport](../scenarios/kafka-transport.json), [Temporal checkout](../scenarios/temporal-checkout.json), [storage/LSM](../scenarios/storage-lsm.json), and [B+ tree](../scenarios/storage-btree.json), record verified behaviors and evidence paths; they do not declare the much larger associated packages complete. `make coverage-check` validates their package IDs and file references in addition to the book inventory.
 
-The [index-layout scenario](../scenarios/storage-indexes.json), [column-analytics scenario](../scenarios/storage-columns.json) and [search-discovery scenario](../scenarios/search-discovery.json) bring the tracker to twelve verified manifests, with 25 packages in progress and 63 planned, retaining all 88 original IDs. These counts track packages started, not a percentage of completed book coverage.
+The [index-layout scenario](../scenarios/storage-indexes.json), [column-analytics scenario](../scenarios/storage-columns.json), [search-discovery scenario](../scenarios/search-discovery.json) and [catalog-model scenario](../scenarios/catalog-models.json) bring the tracker to thirteen verified manifests, with 26 packages in progress and 62 planned, retaining all 88 original IDs. These counts track packages started, not a percentage of completed book coverage.
 
 Real payment/carrier-network integration, returns, single-SKU warehouse splits, Kubernetes deployment, backup/restore workflows, Raft, CDC, and complete storage engines remain unfinished. Current capabilities are defined by the source and recorded validation, not by the eventual project scope.

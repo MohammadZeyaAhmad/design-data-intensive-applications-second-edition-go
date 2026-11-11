@@ -1,0 +1,36 @@
+{
+  "id": "catalog-models",
+  "status": "verified",
+  "work_packages": ["APP-01", "APP-02", "APP-08", "C03-01"],
+  "commands": ["make verify-models", "make verify ID=C03-01", "go run ./cmd/guide verify-models", "make models-demo", "make models-postgres", "make verify-models-live", "make check-catalog-generated"],
+  "assertions": [
+    "four Go representations match 160 independent seeded tenant/category/price/favorite questions with stable ordering and limits",
+    "duplicate SKUs in different tenants preserve qualified identities",
+    "partial copied-name rename diverges and explicit repair restores all representations",
+    "deletion removes category/favorite/family entries and reopening preserves results",
+    "concurrent queries and repair pass race checks",
+    "schema-on-read distinguishes legacy/current types, absent/null/zero and invalid values",
+    "real PostgreSQL normalized/flat/JSONB/family queries match independent fixture reductions",
+    "eight unforced plans retain comparison index effects and raw repeated measurements",
+    "actual sqlc/lazy-GORM/eager-GORM mappings return identical details with measured statement counts",
+    "actual nested JSONB/variant updates preserve intended values and authoritative source facts",
+    "temporary update targets have explicit unlogged/WAL and allocation/buffer measurement boundaries",
+    "Catalog detail publication fences concurrent first writes and atomically replaces children",
+    "command replay, immutable history, server provenance and HTTP tenant/input contracts pass",
+    "live HTTP reference rename and content revision changes preserve price authority",
+    "pinned sqlc generation is reproducible and checked in CI"
+  ],
+  "evidence": [
+    "labs/ch03/models/models_test.go",
+    "labs/ch03/models/scenario.go",
+    "tests/integration/models_test.go",
+    "benchmarks/models/models.go",
+    "benchmarks/models/orm.go",
+    "internal/catalog/adapters/postgres/details.sql",
+    "internal/catalog/adapters/postgres/detailsqlc/details.sql.go",
+    "cmd/guide/models.go",
+    "docs/MODELS.md",
+    "docs/chapters/ch03/catalog-models.md",
+    "docs/VALIDATION.md"
+  ]
+}

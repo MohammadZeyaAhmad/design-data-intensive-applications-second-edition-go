@@ -1,9 +1,11 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"errors"
 	api "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/catalog"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/catalog/domain"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/catalog/features/describe"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/catalog/features/publish"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/catalog/features/quote"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/catalog/ports"
@@ -14,8 +16,72 @@ import (
 	"net/http"
 )
 
-func New(store ports.Store, keys map[[32]byte]string) http.Handler {
+type catalogStore interface {
+	ports.Store
+	ports.Content
+}
+
+func New(store catalogStore, keys map[[32]byte]string) http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /v1/catalog/brands/{id}", func(w http.ResponseWriter, r *http.Request) {
+		b, e := store.Brand(r.Context(), auth.Tenant(r.Context()), r.PathValue("id"))
+		if e != nil {
+			failure(w, e)
+			return
+		}
+		httpx.JSON(w, 200, b)
+	})
+	mux.HandleFunc("PUT /v1/catalog/brands/{id}", func(w http.ResponseWriter, r *http.Request) {
+		var b struct {
+			Name            string `json:"name"`
+			ExpectedVersion int64  `json:"expected_version"`
+		}
+		if !httpx.Decode(w, r, &b) {
+			return
+		}
+		out, replayed, e := (describe.Handler{Store: store}).Brand(r.Context(), auth.Tenant(r.Context()), r.Header.Get("Idempotency-Key"), domain.Brand{ID: r.PathValue("id"), Name: b.Name, Version: b.ExpectedVersion})
+		if e != nil {
+			failure(w, e)
+			return
+		}
+		if replayed {
+			w.Header().Set("Idempotent-Replay", "true")
+		}
+		httpx.JSON(w, 200, out)
+	})
+	mux.HandleFunc("PUT /v1/catalog/products/{sku}/details", func(w http.ResponseWriter, r *http.Request) {
+		var b struct {
+			BrandID         string           `json:"brand_id"`
+			Description     string           `json:"description"`
+			Attributes      json.RawMessage  `json:"attributes"`
+			Variants        []domain.Variant `json:"variants"`
+			Categories      []string         `json:"categories"`
+			ExpectedVersion int64            `json:"expected_version"`
+		}
+		if !httpx.Decode(w, r, &b) {
+			return
+		}
+		if len(b.Attributes) == 0 {
+			b.Attributes = json.RawMessage(`{}`)
+		}
+		out, replayed, e := (describe.Handler{Store: store}).Handle(r.Context(), auth.Tenant(r.Context()), r.Header.Get("Idempotency-Key"), domain.Details{SKU: r.PathValue("sku"), BrandID: b.BrandID, Description: b.Description, Attributes: b.Attributes, Variants: b.Variants, Categories: b.Categories, Version: b.ExpectedVersion})
+		if e != nil {
+			failure(w, e)
+			return
+		}
+		if replayed {
+			w.Header().Set("Idempotent-Replay", "true")
+		}
+		httpx.JSON(w, 200, out)
+	})
+	mux.HandleFunc("GET /v1/catalog/products/{sku}/details", func(w http.ResponseWriter, r *http.Request) {
+		d, e := store.Details(r.Context(), auth.Tenant(r.Context()), r.PathValue("sku"))
+		if e != nil {
+			failure(w, e)
+			return
+		}
+		httpx.JSON(w, 200, d)
+	})
 	mux.HandleFunc("PUT /v1/catalog/products/{sku}", func(w http.ResponseWriter, r *http.Request) {
 		var b struct {
 			Name            string `json:"name"`

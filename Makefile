@@ -36,7 +36,9 @@ verify-orders:
 verify-recovery:
 	go run ./cmd/guide verify-recovery
 ifeq ($(strip $(ID)),)
-verify: test integration coverage-check lab storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live
+verify: test integration coverage-check lab models-demo models-postgres storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live
+else ifeq ($(ID),C03-01)
+verify: verify-models
 else ifeq ($(ID),C04-01)
 verify: verify-storage
 else ifeq ($(ID),C04-02)
@@ -49,7 +51,7 @@ else ifeq ($(ID),C04-05)
 verify: verify-search
 else
 verify:
-	@echo 'Scoped verification currently supports ID=C04-01 through C04-05; other plan IDs remain future interfaces.' >&2
+	@echo 'Scoped verification supports ID=C03-01 and C04-01 through C04-05; other plan IDs remain future interfaces.' >&2
 	@exit 2
 endif
 demo:
@@ -161,3 +163,18 @@ integration-search-vector: configure
 	@trap '$(COMPOSE_SEARCH_TEST) down' EXIT; $(COMPOSE_SEARCH_TEST) up -d --wait && go run ./cmd/guide verify-search-vector
 down-search-test:
 	$(COMPOSE_SEARCH_TEST) down
+
+.PHONY: models-test models-demo models-postgres verify-models verify-models-live generate-catalog check-catalog-generated
+models-test:
+	cd labs && go test -race -count=1 ./ch03/models
+models-demo:
+	cd labs && go run ./cmd/lab models -output ../artifacts/models.json
+models-postgres:
+	ATLAS_MODELS_REPORT="$(CURDIR)/artifacts/models-postgres.json" go test -race -tags=integration -run '^TestCatalogModels' -count=1 ./tests/integration
+verify-models: coverage-check models-test models-demo models-postgres
+verify-models-live:
+	go run ./cmd/guide verify-models-live
+generate-catalog:
+	bash tools/sqlc-catalog.sh generate
+check-catalog-generated:
+	bash tools/sqlc-catalog.sh check

@@ -61,3 +61,7 @@ These are local test references. No actual card or external payment account is u
 An uncertain response stays retryable; timeout does not mean decline. A close operation can atomically void an unseen provider intent, permanently fencing a delayed capture. If the provider captured but Payments missed the result, refund reconciliation records both capture and refund in one local journal transaction.
 
 Payment references remain in operational scheduling/intent records; they are absent from immutable order events and public checkout status. Production identity, secret storage/retention, least-privilege roles, HTTPS trust and a real provider adapter remain explicit deployment work.
+
+## Catalog detail content
+
+The [data-model guide](MODELS.md) documents tenant-scoped brand and product-detail APIs, expected content revisions, variant/category replacement, JSONB attributes and generated reads. Brand/detail changes preserve existing price and quote authority. `make verify-models-live` checks these contracts through the running API.

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	modelslab "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch03/models"
 	"os"
 	"path/filepath"
 	"time"
@@ -24,7 +25,7 @@ func main() {
 	}
 }
 func run(args []string) error {
-	if len(args) > 0 && (args[0] == "lsm" || args[0] == "btree" || args[0] == "tradeoffs" || args[0] == "indexes" || args[0] == "columnstore" || args[0] == "search") {
+	if len(args) > 0 && (args[0] == "models" || args[0] == "lsm" || args[0] == "btree" || args[0] == "tradeoffs" || args[0] == "indexes" || args[0] == "columnstore" || args[0] == "search") {
 		flags := flag.NewFlagSet("lab "+args[0], flag.ContinueOnError)
 		rows := flags.Int("rows", 512, "synthetic warehouse rows (32..4096)")
 		runs := flags.Int("runs", 3, "fresh database repetitions (1..5)")
@@ -43,6 +44,8 @@ func run(args []string) error {
 		var report any
 		var e error
 		switch args[0] {
+		case "models":
+			report, e = modelslab.RunScenarioAt(parent, *rows, *runs)
 		case "search":
 			report, e = searchlab.RunScenarioAt(parent, *rows, *runs)
 		case "columnstore":
@@ -75,7 +78,7 @@ func run(args []string) error {
 		return e
 	}
 	if len(args) != 1 || args[0] != "lost-update" {
-		return errors.New("usage: lab lost-update | lsm|btree|tradeoffs|indexes|columnstore|search [-rows N] [-runs N] [-output path] [-workdir path]")
+		return errors.New("usage: lab lost-update | models|lsm|btree|tradeoffs|indexes|columnstore|search [-rows N] [-runs N] [-output path] [-workdir path]")
 	}
 	report := lostupdate.Run()
 	if !report.ExpectedCounterexample || report.UnsafeFinal != 1 || report.AtomicFinal != 2 {

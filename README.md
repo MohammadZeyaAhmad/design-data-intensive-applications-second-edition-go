@@ -53,6 +53,7 @@ make down
 - Compressed column segments, versioned delta/tombstone visibility, scalar/batch/native-generated predicates, nullable aggregates and an incremental tenant-preserving data cube.
 - Tenant-scoped Search context with English full-text/trigram/spatial APIs, versioned embeddings and an optional pgvector profile; direct inverted/KD/HNSW Go implementations with exact recall comparisons.
 - Normalized Catalog brands/details with ordered variants, category memberships and JSONB attributes; relational/document/flat/column-family comparisons with generated sqlc and real GORM mappings.
+- Warehouse/supplier property graphs in Go, recursive PostgreSQL and real Neo4j/Cypher, with full reachability, bounded simple/cheapest paths, tenant fences and actual query plans.
 - Independent Go lab showing a lost-update schedule, connected to the real database contention tests.
 
 Inventory state is authoritative in PostgreSQL tables; Ordering state is derived from its immutable event stream. A placed order currently records SKU/quantity intent. An order remains unpriced intent until checkout accepts a Catalog quote; captured payment and committed stock are required for confirmation. The local dispatcher uses PostgreSQL. Catalog price authority, checkout capture/compensation and a two-leg payment journal now run through published contracts; warehouse sourcing and a separate Fulfillment context now carry confirmed allocations through picking, packing, durable dispatch and delivery recording. Kafka transport is now executable; CDC, replicated broker operation, full telemetry and the remaining laboratories are tracked in the backlog.
@@ -96,6 +97,8 @@ The [search guide](docs/SEARCH.md) connects text ranking, misspellings, spatial 
 
 The [data-model guide](docs/MODELS.md) connects Catalog details to equivalent relational, document, denormalized and wide-column modeling exercises. It exposes copy-repair obligations, schema drift, nested update costs and actual sqlc/GORM statement counts.
 
+The [graph guide](docs/GRAPHS.md) compares the same directed property multigraph across Go adjacency maps, PostgreSQL CTEs and Neo4j. An independent oracle, cycle/parallel-edge cases, property changes and malicious tenant bridges verify the query contracts.
+
 The planning inventory covers **14 chapters, 476 substantive headings, 61 glossary terms, 4,215 index occurrences, and 48 backend-pattern entries**. Every concept requires an implementation, executable experiment/model, or appropriate worked design exercise. Runtime profiles limit resources, not final scope.
 
 ```sh
@@ -105,6 +108,11 @@ make verify-models      # model equivalence, schema drift, real SQL plans and OR
 make verify ID=C03-01    # scoped model verification; local test DB required
 make verify-models-live # current references, revisions and child replacement over HTTP
 make check-catalog-generated # regenerate with pinned sqlc and reject mapping drift
+make verify-graph       # Go graph and isolated real SQL/Neo4j profile; Docker required
+make verify ID=C03-03    # scoped graph verification, including tenant bridges and plans
+make up-graph           # independent graph services on 17433/17687/17474
+go run ./cmd/guide verify-graph-services
+make down-graph         # stops only the graph profile, retaining its volumes
 make verify-storage     # LSM/map oracle, power-loss model, real kills and bbolt comparison
 make verify ID=C04-01    # scoped verification of the LSM package
 make verify-btree       # B+ tree structure, redo/crash tests and bbolt comparison

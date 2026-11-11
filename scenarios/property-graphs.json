@@ -1,0 +1,35 @@
+{
+  "id": "property-graphs",
+  "status": "verified",
+  "work_packages": ["APP-01", "C03-03"],
+  "commands": ["make verify-graph", "make verify ID=C03-03", "go run ./cmd/guide verify-graph", "make graph-demo", "make integration-graph", "go run ./cmd/guide verify-graph-services"],
+  "assertions": [
+    "Go adjacency, real PostgreSQL recursive CTEs and Neo4j Cypher match independent complete answers",
+    "property/label/direction filters preserve tenant-qualified identity across duplicate logical IDs",
+    "minimum-hop reach includes zero hops and reaches the full bounded component beyond six hops",
+    "node-simple paths exclude cycles and preserve parallel relationship identity",
+    "positive-cost bounded Dijkstra and native cheapest-path queries agree with deterministic ties",
+    "cost/capacity/enabled/name replacement and vertex deletion update every result set",
+    "three-parallel-edge chain returns an explicit overflow error rather than 256-path partial success",
+    "SQL composite foreign keys reject a foreign-tenant endpoint",
+    "Cypher every-node/every-edge predicates reject tenant-leaving-and-returning bridges and wrong-tenant relationships",
+    "concurrent single-client readers observe complete old/new fixtures and pre-canceled requests fail",
+    "ten unforced SQL plans and five actual Neo4j PROFILE trees retain runtime work",
+    "statistics are refreshed before/after SQL adjacency indexes and different work units remain explicit",
+    "full pinned authenticated profiles have separate ports/volumes and owned cleanup",
+    "scalar/query-bound fuzzing, volatile Go state, bounded resources and operational limits are explicit"
+  ],
+  "evidence": [
+    "labs/ch03/property-graph/graph_test.go",
+    "labs/ch03/property-graph/oracle.go",
+    "labs/ch03/property-graph/scenario.go",
+    "labs/ch03/property-graph/native/scenario.go",
+    "labs/ch03/property-graph/integration/graph_test.go",
+    "labs/ch03/property-graph/postgres/store.go",
+    "labs/ch03/property-graph/neo4j/store.go",
+    "deploy/compose/graph/compose.yaml",
+    "docs/GRAPHS.md",
+    "docs/chapters/ch03/property-graphs.md",
+    "docs/VALIDATION.md"
+  ]
+}

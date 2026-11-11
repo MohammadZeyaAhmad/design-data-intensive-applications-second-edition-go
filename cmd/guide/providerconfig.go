@@ -38,6 +38,13 @@ func providerConfig() error {
 	if !strings.Contains("\n"+text, "\nATLAS_PROVIDER_URL=") {
 		text += "ATLAS_PROVIDER_URL=http://127.0.0.1:18082\n"
 	}
+	if !strings.Contains("\n"+text, "\nATLAS_GRAPH_PASSWORD=") {
+		password, err := secret()
+		if err != nil {
+			return err
+		}
+		text += "ATLAS_GRAPH_PASSWORD=" + password + "\n"
+	}
 	if text == string(b) {
 		return nil
 	}

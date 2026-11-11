@@ -8,6 +8,7 @@ COMPOSE_TEMPORAL = docker compose --env-file .env -f deploy/compose/compose.yaml
 COMPOSE_TEMPORAL_TEST = docker compose --env-file .env -f deploy/compose/compose.yaml -f deploy/compose/temporal.yaml -p ddia-go-temporal-test
 COMPOSE_SEARCH = docker compose --env-file .env -f deploy/compose/compose.yaml -f deploy/compose/search-vector.yaml -p ddia-go-search
 COMPOSE_SEARCH_TEST = docker compose --env-file .env -f deploy/compose/search-vector-test.yaml -p ddia-go-search-test
+COMPOSE_GRAPH = docker compose --env-file .env -f deploy/compose/graph/compose.yaml -p ddia-go-graph
 
 configure:
 	go run ./cmd/guide configure
@@ -36,9 +37,11 @@ verify-orders:
 verify-recovery:
 	go run ./cmd/guide verify-recovery
 ifeq ($(strip $(ID)),)
-verify: test integration coverage-check lab models-demo models-postgres storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live
+verify: test integration coverage-check lab models-demo models-postgres graph-demo integration-graph storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live
 else ifeq ($(ID),C03-01)
 verify: verify-models
+else ifeq ($(ID),C03-03)
+verify: verify-graph
 else ifeq ($(ID),C04-01)
 verify: verify-storage
 else ifeq ($(ID),C04-02)
@@ -51,7 +54,7 @@ else ifeq ($(ID),C04-05)
 verify: verify-search
 else
 verify:
-	@echo 'Scoped verification supports ID=C03-01 and C04-01 through C04-05; other plan IDs remain future interfaces.' >&2
+	@echo 'Scoped verification supports ID=C03-01, C03-03 and C04-01 through C04-05; other plan IDs remain future interfaces.' >&2
 	@exit 2
 endif
 demo:
@@ -178,3 +181,16 @@ generate-catalog:
 	bash tools/sqlc-catalog.sh generate
 check-catalog-generated:
 	bash tools/sqlc-catalog.sh check
+
+.PHONY: graph-test graph-demo integration-graph verify-graph up-graph down-graph
+graph-test:
+	cd labs && go test -race -count=1 ./ch03/property-graph/...
+graph-demo:
+	cd labs && go run ./cmd/lab graph -output ../artifacts/graph.json
+integration-graph: configure
+	@trap '$(COMPOSE_GRAPH) down' EXIT; $(COMPOSE_GRAPH) up -d --wait && go run ./cmd/guide verify-graph-services
+verify-graph: coverage-check graph-test graph-demo integration-graph
+up-graph: configure
+	$(COMPOSE_GRAPH) up -d --wait
+down-graph:
+	$(COMPOSE_GRAPH) down

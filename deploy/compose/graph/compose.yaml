@@ -1,0 +1,38 @@
+name: ddia-go-graph
+services:
+  postgres:
+    image: postgres@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4
+    command: [postgres, -c, max_wal_size=128MB, -c, min_wal_size=32MB, -c, checkpoint_timeout=30s]
+    environment:
+      POSTGRES_USER: atlas
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run make configure}
+      POSTGRES_DB: atlas_test
+    ports: ["127.0.0.1:${ATLAS_GRAPH_POSTGRES_PORT:-17433}:5432"]
+    volumes: [graph_postgres:/var/lib/postgresql]
+    healthcheck:
+      test: [CMD-SHELL, 'PGPASSWORD="$${POSTGRES_PASSWORD}" psql -h 127.0.0.1 -U atlas -d atlas_test -Atqc "SELECT 1"']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  neo4j:
+    image: neo4j@sha256:ec10d705830a340c7438e125cb5c4f90522b85369d877c9a581c3de5974ab3d6
+    environment:
+      NEO4J_AUTH: neo4j/${ATLAS_GRAPH_PASSWORD:?run make configure}
+      NEO4J_server_memory_heap_initial__size: 256m
+      NEO4J_server_memory_heap_max__size: 256m
+      NEO4J_server_memory_pagecache_size: 64m
+      NEO4J_server_bolt_advertised__address: localhost:${ATLAS_GRAPH_BOLT_PORT:-17687}
+      NEO4J_server_http_advertised__address: localhost:${ATLAS_GRAPH_HTTP_PORT:-17474}
+      NEO4J_dbms_usage__report_enabled: "false"
+    ports:
+      - "127.0.0.1:${ATLAS_GRAPH_BOLT_PORT:-17687}:7687"
+      - "127.0.0.1:${ATLAS_GRAPH_HTTP_PORT:-17474}:7474"
+    volumes: [graph_neo4j:/data]
+    healthcheck:
+      test: [CMD-SHELL, 'NEO4J_PASSWORD="$${NEO4J_AUTH#*/}" cypher-shell -a bolt://127.0.0.1:7687 -u neo4j --format plain "RETURN 1" >/dev/null']
+      interval: 5s
+      timeout: 10s
+      retries: 30
+volumes:
+  graph_postgres:
+  graph_neo4j:

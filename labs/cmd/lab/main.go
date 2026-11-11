@@ -7,6 +7,8 @@ import (
 	"flag"
 	"fmt"
 	modelslab "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch03/models"
+	graphlab "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch03/property-graph"
+	graphnative "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch03/property-graph/native"
 	"os"
 	"path/filepath"
 	"time"
@@ -25,9 +27,13 @@ func main() {
 	}
 }
 func run(args []string) error {
-	if len(args) > 0 && (args[0] == "models" || args[0] == "lsm" || args[0] == "btree" || args[0] == "tradeoffs" || args[0] == "indexes" || args[0] == "columnstore" || args[0] == "search") {
+	if len(args) > 0 && (args[0] == "graph" || args[0] == "graph-services" || args[0] == "models" || args[0] == "lsm" || args[0] == "btree" || args[0] == "tradeoffs" || args[0] == "indexes" || args[0] == "columnstore" || args[0] == "search") {
 		flags := flag.NewFlagSet("lab "+args[0], flag.ContinueOnError)
-		rows := flags.Int("rows", 512, "synthetic warehouse rows (32..4096)")
+		rowsHelp := "synthetic warehouse/catalog rows (32..4096)"
+		if args[0] == "graph" || args[0] == "graph-services" {
+			rowsHelp = "graph vertices (even counts, 32..512)"
+		}
+		rows := flags.Int("rows", 512, rowsHelp)
 		runs := flags.Int("runs", 3, "fresh database repetitions (1..5)")
 		output := flags.String("output", "", "optional JSON report path")
 		workdir := flags.String("workdir", "", "parent for temporary databases; defaults to report directory or system temp")
@@ -44,6 +50,14 @@ func run(args []string) error {
 		var report any
 		var e error
 		switch args[0] {
+		case "graph", "graph-services":
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+			defer cancel()
+			if args[0] == "graph" {
+				report, e = graphlab.RunScenario(ctx, *rows, *runs)
+			} else {
+				report, e = graphnative.Run(ctx, *rows, *runs)
+			}
 		case "models":
 			report, e = modelslab.RunScenarioAt(parent, *rows, *runs)
 		case "search":
@@ -78,7 +92,7 @@ func run(args []string) error {
 		return e
 	}
 	if len(args) != 1 || args[0] != "lost-update" {
-		return errors.New("usage: lab lost-update | models|lsm|btree|tradeoffs|indexes|columnstore|search [-rows N] [-runs N] [-output path] [-workdir path]")
+		return errors.New("usage: lab lost-update | graph|graph-services|models|lsm|btree|tradeoffs|indexes|columnstore|search [-rows N] [-runs N] [-output path] [-workdir path]")
 	}
 	report := lostupdate.Run()
 	if !report.ExpectedCounterexample || report.UnsafeFinal != 1 || report.AtomicFinal != 2 {

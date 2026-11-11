@@ -33,7 +33,7 @@ func main() {
 }
 func run() error {
 	if len(os.Args) != 2 {
-		return errors.New("usage: guide configure|doctor|wait|demo|demo-orders|demo-checkout|verify-checkout|verify-checkout-recovery|verify-fulfillment|verify-fulfillment-recovery|verify-operations|verify-kafka|verify-temporal|verify-storage|verify-btree|verify-indexes|verify-columnstore|verify-models|verify-models-live|verify-search|verify-search-vector|verify-search-live|verify-live|verify-lifecycle|verify-orders|verify-recovery|coverage")
+		return errors.New("usage: guide configure|doctor|wait|demo|demo-orders|demo-checkout|verify-checkout|verify-checkout-recovery|verify-fulfillment|verify-fulfillment-recovery|verify-operations|verify-kafka|verify-temporal|verify-storage|verify-btree|verify-indexes|verify-columnstore|verify-graph|verify-graph-services|verify-models|verify-models-live|verify-search|verify-search-vector|verify-search-live|verify-live|verify-lifecycle|verify-orders|verify-recovery|coverage")
 	}
 	command := os.Args[1]
 	if command == "configure" {
@@ -42,7 +42,10 @@ func run() error {
 	if command == "verify-search-vector" {
 		return verifySearchVector()
 	}
-	if command == "verify-search" || command == "verify-models" {
+	if command == "verify-graph-services" {
+		return verifyGraphServices()
+	}
+	if command == "verify-graph" || command == "verify-search" || command == "verify-models" {
 		cmd := exec.Command("make", command)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

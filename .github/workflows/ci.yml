@@ -40,11 +40,13 @@ jobs:
       - name: Real PostgreSQL concurrency and failure tests
         run: make integration
       - name: Source inventory and executable storage comparisons
-        run: make coverage-check lab models-demo storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans storage-bench
+        run: make coverage-check lab models-demo graph-demo storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans storage-bench
       - name: Real catalog model queries, plans and ORM comparison
         run: make models-postgres
       - name: Real pgvector profile, exact recall and search application tests
         run: make integration-search-vector
+      - name: Real graph SQL and Neo4j profile, tenant fences and bounded paths
+        run: make integration-graph
       - name: Bounded storage record fuzzing
         run: cd labs && go test -run '^$' -fuzz '^FuzzRecordDecoder$' -fuzztime=5s -parallel=2 ./ch04/lsm
       - name: Bounded B+ tree page and redo fuzzing
@@ -62,6 +64,8 @@ jobs:
         run: cd labs && go test -run '^$' -fuzz '^FuzzTokenizerAndCosineBounds$' -fuzztime=5s -parallel=2 ./ch04/search
       - name: Bounded model schema migration fuzzing
         run: cd labs && go test -run '^$' -fuzz '^FuzzSchemaOnRead$' -fuzztime=5s -parallel=2 ./ch03/models
+      - name: Bounded graph scalar properties and traversal inputs
+        run: cd labs && go test -run '^$' -fuzz '^FuzzPropertiesAndBounds$' -fuzztime=5s -parallel=2 ./ch03/property-graph
       - name: Retain storage comparison report
         uses: actions/upload-artifact@v4
         with:
@@ -78,6 +82,8 @@ jobs:
             artifacts/search-pgvector.json
             artifacts/models.json
             artifacts/models-postgres.json
+            artifacts/graph.json
+            artifacts/graph-services.json
       - name: Verify application builds independently of the lab workspace
         run: |
           GOWORK=off go build ./cmd/atlas ./cmd/guide ./cmd/admin
@@ -113,4 +119,4 @@ jobs:
       - name: Stop disposable stack
         if: always()
         run: |
-          if test -f .env; then make down-search-test down-search down-temporal-test down-kafka-test down-temporal down-kafka; fi
+          if test -f .env; then make down-graph down-search-test down-search down-temporal-test down-kafka-test down-temporal down-kafka; fi

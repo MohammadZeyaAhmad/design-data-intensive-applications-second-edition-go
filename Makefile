@@ -206,7 +206,7 @@ semantic-test:
 semantic-demo:
 	cd labs && go run ./cmd/lab semantic -output ../artifacts/semantic.json
 integration-semantic: configure prepare-rdf-runtime
-	@trap '$(COMPOSE_RDF) down' EXIT; $(COMPOSE_RDF) up --build -d --wait && go run ./cmd/guide verify-semantic-services
+	@trap 'semantic_status=$$?; if (( semantic_status != 0 )); then $(COMPOSE_RDF) logs --no-color --tail 100; fi; $(COMPOSE_RDF) down; exit $$semantic_status' EXIT; $(COMPOSE_RDF) up --build -d --wait && go run ./cmd/guide verify-semantic-services
 verify-semantic: coverage-check semantic-test semantic-demo integration-semantic
 up-rdf: configure prepare-rdf-runtime
 	$(COMPOSE_RDF) up --build -d --wait

@@ -35,6 +35,8 @@ jobs:
         run: test -z "$(gofmt -l cmd contracts internal migrations tests api labs benchmarks)"
       - name: Reproduce pinned sqlc catalog mappings
         run: make check-catalog-generated
+      - name: Reproduce pinned Protobuf and Thrift contracts and reserved-field rejection
+        run: make check-encoding-generated
       - name: Application and lab tests, including race detection
         run: make test
       - name: Real PostgreSQL concurrency and failure tests
@@ -45,6 +47,8 @@ jobs:
         run: make models-postgres
       - name: GraphQL composition, native batching and REST parity
         run: make graphql-demo graphql-postgres
+      - name: Encoding versions, generated RPC and repeated byte/CPU comparisons
+        run: make encoding-demo encoding-bench
       - name: Real pgvector profile, exact recall and search application tests
         run: make integration-search-vector
       - name: Real graph SQL and Neo4j profile, tenant fences and bounded paths
@@ -77,6 +81,8 @@ jobs:
         run: cd labs && go test -run '^$' -fuzz '^FuzzPropertiesAndBounds$' -fuzztime=5s -parallel=2 ./ch03/property-graph
       - name: Bounded GraphQL query cost and fragment expansion fuzzing
         run: go test -run '^$' -fuzz '^FuzzQueryBudget$' -fuzztime=5s -parallel=2 ./api/graphql
+      - name: Bounded encoding wire preflight fuzzing
+        run: cd labs && go test -run '^$' -fuzz '^FuzzWirePreflight$' -fuzztime=5s -parallel=2 ./ch05/encoding
       - name: Retain storage comparison report
         uses: actions/upload-artifact@v4
         with:
@@ -99,6 +105,8 @@ jobs:
             artifacts/semantic-services.json
             artifacts/graphql.json
             artifacts/graphql-postgres.json
+            artifacts/encoding.json
+            artifacts/encoding-go-benchmark.txt
       - name: Verify application builds independently of the lab workspace
         run: |
           GOWORK=off go build ./cmd/atlas ./cmd/guide ./cmd/admin

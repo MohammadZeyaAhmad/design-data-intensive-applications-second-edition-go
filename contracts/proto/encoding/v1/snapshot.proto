@@ -1,0 +1,14 @@
+syntax = "proto3";
+package atlas.encoding.v1;
+option go_package = "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch05/encoding/generated/protov1";
+
+message Line { string sku = 1; int32 quantity = 2; }
+message Snapshot {
+  string tenant_id = 1;
+  string order_id = 2;
+  string customer_name = 3;
+  repeated Line lines = 4;
+  string legacy_note = 5 [deprecated = true];
+  int64 version = 7;
+  optional bool expedited = 8;
+}

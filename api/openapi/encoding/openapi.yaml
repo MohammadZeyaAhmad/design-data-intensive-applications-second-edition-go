@@ -1,0 +1,12 @@
+openapi: 3.1.0
+info:
+  title: Encoding laboratory contracts
+  version: 2.0.0
+  description: Component-only contract examples for synthetic order snapshots. No API endpoint is deployed by this document.
+paths: {}
+components:
+  schemas:
+    SnapshotV1:
+      $ref: ./v1.schema.json
+    SnapshotV2:
+      $ref: ./v2.schema.json

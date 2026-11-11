@@ -1,0 +1,18 @@
+syntax = "proto3";
+package atlas.encoding.v2;
+option go_package = "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch05/encoding/generated/protov2";
+
+message Line { string sku = 1; int64 quantity = 2; }
+message Snapshot {
+  string tenant_id = 1;
+  string order_id = 2;
+  string display_name = 3; // Rename keeps the wire tag, but changes ProtoJSON.
+  repeated Line lines = 4;
+  reserved 5;
+  reserved "legacy_note";
+  optional string currency = 6;
+  int64 version = 7;
+  optional bool expedited = 8;
+  optional int64 discount_minor = 9;
+  map<string,string> labels = 10;
+}

@@ -19,6 +19,7 @@ import (
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch04/indexes"
 	searchlab "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch04/search"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch04/storage"
+	encodinglab "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch05/encoding"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/ch08/lostupdate"
 )
 
@@ -29,6 +30,9 @@ func main() {
 	}
 }
 func run(args []string) error {
+	if len(args) > 0 && args[0] == "encoding" {
+		return runEncoding(args[1:])
+	}
 	if len(args) > 0 && (args[0] == "semantic" || args[0] == "semantic-services" || args[0] == "graph" || args[0] == "graph-services" || args[0] == "models" || args[0] == "lsm" || args[0] == "btree" || args[0] == "tradeoffs" || args[0] == "indexes" || args[0] == "columnstore" || args[0] == "search") {
 		flags := flag.NewFlagSet("lab "+args[0], flag.ContinueOnError)
 		rowsHelp := "synthetic warehouse/catalog rows (32..4096)"
@@ -106,13 +110,43 @@ func run(args []string) error {
 		return e
 	}
 	if len(args) != 1 || args[0] != "lost-update" {
-		return errors.New("usage: lab lost-update | semantic|semantic-services|graph|graph-services|models|lsm|btree|tradeoffs|indexes|columnstore|search [-rows N] [-runs N] [-output path] [-workdir path]")
+		return errors.New("usage: lab encoding [-runs N] [-iterations N] [-output path] | lost-update | semantic|semantic-services|graph|graph-services|models|lsm|btree|tradeoffs|indexes|columnstore|search [-rows N] [-runs N] [-output path] [-workdir path]")
 	}
 	report := lostupdate.Run()
 	if !report.ExpectedCounterexample || report.UnsafeFinal != 1 || report.AtomicFinal != 2 {
 		return errors.New("unexpected model result")
 	}
 	return json.NewEncoder(os.Stdout).Encode(report)
+}
+func runEncoding(args []string) error {
+	flags := flag.NewFlagSet("lab encoding", flag.ContinueOnError)
+	runs := flags.Int("runs", 3, "independent sample repetitions (1..5)")
+	iterations := flags.Int("iterations", 16, "encode/decode operations per timed sample (1..128)")
+	output := flags.String("output", "", "optional JSON report path")
+	if e := flags.Parse(args); e != nil {
+		return e
+	}
+	if flags.NArg() != 0 {
+		return errors.New("unexpected encoding lab argument")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	report, e := encodinglab.Run(ctx, *runs, *iterations)
+	if e != nil {
+		return e
+	}
+	b, e := json.MarshalIndent(report, "", "  ")
+	if e != nil {
+		return e
+	}
+	b = append(b, '\n')
+	if *output != "" {
+		if e = saveReport(*output, b); e != nil {
+			return e
+		}
+	}
+	_, e = os.Stdout.Write(b)
+	return e
 }
 func saveReport(path string, data []byte) error {
 	dir := filepath.Dir(path)

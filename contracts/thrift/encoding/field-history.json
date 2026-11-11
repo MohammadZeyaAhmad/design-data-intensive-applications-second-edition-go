@@ -1,0 +1,9 @@
+{
+  "struct": "Snapshot",
+  "retired_ids": [5],
+  "retired_names": ["legacy_note"],
+  "renamed_ids": {"3": ["customer_name", "display_name"]},
+  "added_ids": [6, 9, 10],
+  "incompatible_probe": {"wide/Line.2": ["i32", "i64"]},
+  "rule": "Never reuse retired IDs; integer-width changes require compatibility evidence, not an assumption."
+}

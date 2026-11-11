@@ -1,0 +1,17 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://atlas.example/schemas/encoding/v1",
+  "title":"Encoding lab snapshot v1",
+  "type":"object","maxProperties":32,
+  "required":["tenant_id","order_id","name","lines","version"],
+  "properties":{
+    "tenant_id":{"type":"string","pattern":"^[a-z][a-z0-9-]{0,63}$"},
+    "order_id":{"type":"string","pattern":"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"},
+    "name":{"type":"string","minLength":1,"maxLength":128},
+    "version":{"type":"string","pattern":"^[1-9][0-9]{0,18}$"},
+    "expedited":{"type":["boolean","null"]},
+    "legacy_note":{"type":"string","maxLength":128},
+    "lines":{"type":"array","minItems":1,"maxItems":100,"items":{"type":"object","required":["sku","quantity"],"properties":{"sku":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"},"quantity":{"type":"integer","minimum":1,"maximum":1000000000}},"additionalProperties":true}}
+  },
+  "additionalProperties":true
+}

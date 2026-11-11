@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-11",
+  "updated": "2026-11-12",
   "scope": "Full 88-package baseline; scenario verification does not close a whole package.",
   "packages": [
     {
@@ -120,7 +120,7 @@
     },
     {
       "id": "C05-01",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "id": "C05-02",
@@ -371,6 +371,7 @@
     "scenarios/catalog-models.json",
     "scenarios/property-graphs.json",
     "scenarios/semantic-graphs.json",
-    "scenarios/graphql-reads.json"
+    "scenarios/graphql-reads.json",
+    "scenarios/encoding-compatibility.json"
   ]
 }

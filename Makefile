@@ -38,7 +38,7 @@ verify-orders:
 verify-recovery:
 	go run ./cmd/guide verify-recovery
 ifeq ($(strip $(ID)),)
-verify: test integration coverage-check lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic graphql-demo graphql-postgres storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
+verify: test integration coverage-check lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic graphql-demo graphql-postgres check-encoding-generated encoding-demo storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
 else ifeq ($(ID),C03-01)
 verify: verify-models
 else ifeq ($(ID),C03-03)
@@ -57,9 +57,11 @@ else ifeq ($(ID),C04-04)
 verify: verify-columnstore
 else ifeq ($(ID),C04-05)
 verify: verify-search
+else ifeq ($(ID),C05-01)
+verify: verify-encoding
 else
 verify:
-	@echo 'Scoped verification supports ID=C03-01, C03-03 through C03-05 and C04-01 through C04-05; other plan IDs remain future interfaces.' >&2
+	@echo 'Scoped verification supports ID=C03-01, C03-03 through C03-05, C04-01 through C04-05 and C05-01; other plan IDs remain future interfaces.' >&2
 	@exit 2
 endif
 demo:
@@ -225,3 +227,17 @@ graphql-postgres:
 verify-graphql: coverage-check graphql-test graphql-demo graphql-postgres
 verify-graphql-live:
 	go run ./cmd/guide verify-graphql-live
+
+.PHONY: encoding-test encoding-demo encoding-bench generate-encoding check-encoding-generated verify-encoding
+encoding-test:
+	cd labs && go test -race -count=1 ./ch05/encoding ./cmd/gob-decode
+encoding-demo:
+	cd labs && go run ./cmd/lab encoding -output ../artifacts/encoding.json
+encoding-bench:
+	mkdir -p artifacts
+	cd labs && go test -run '^$$' -bench '^BenchmarkRoundTrip$$' -benchtime=50ms -count=3 ./ch05/encoding > ../artifacts/encoding-go-benchmark.txt
+generate-encoding:
+	bash tools/encoding-generated.sh generate
+check-encoding-generated:
+	bash tools/encoding-generated.sh check
+verify-encoding: coverage-check check-encoding-generated encoding-test encoding-demo encoding-bench

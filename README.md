@@ -2,7 +2,7 @@
 
 A practical companion to **Designing Data-Intensive Applications, second edition** by Martin Kleppmann and Chris Riccomini. The goal is one cohesive Go backend and a complete set of connected data-system experiments, with equal emphasis on learning and production engineering.
 
-**Implementation is in progress.** Working code includes Catalog quotes, transactional Inventory, event-sourced Ordering, a durable checkout process manager, and a simulated provider with an immutable payment journal, warehouse inventory, durable Fulfillment, versioned provenance, audited local workflow controls, an optional real Kafka transport, a Temporal checkout alternative, and persistent LSM and B+ tree storage labs. The [complete plan](docs/plan/ddia-go-mega-project-plan.md), [88-package backlog](docs/plan/implementation-backlog.md), and [current status](docs/STATUS.md) distinguish the eventual scope from working code.
+**Implementation is in progress.** Working code includes Catalog quotes, transactional Inventory, event-sourced Ordering, a durable checkout process manager, and a simulated provider with an immutable payment journal, warehouse inventory, durable Fulfillment, versioned provenance, audited local workflow controls, an optional real Kafka transport, a Temporal checkout alternative, and Search with versioned embeddings. Storage labs implement LSM/B+ trees, index layouts, compressed analytics and text/spatial/vector indexes. The [complete plan](docs/plan/ddia-go-mega-project-plan.md), [88-package backlog](docs/plan/implementation-backlog.md), and [current status](docs/STATUS.md) distinguish the eventual scope from working code.
 
 ## Run the working implementation
 
@@ -51,6 +51,7 @@ make down
 - Custom page-based B+ tree with splits/merges, persistent free-page reuse, full-page redo, structural validation and interrupted-recovery tests.
 - Heap/clustered/secondary/covering/memory index layouts, atomic maintenance, controlled storage amplification reports and real PostgreSQL multicolumn/index-only plans.
 - Compressed column segments, versioned delta/tombstone visibility, scalar/batch/native-generated predicates, nullable aggregates and an incremental tenant-preserving data cube.
+- Tenant-scoped Search context with English full-text/trigram/spatial APIs, versioned embeddings and an optional pgvector profile; direct inverted/KD/HNSW Go implementations with exact recall comparisons.
 - Independent Go lab showing a lost-update schedule, connected to the real database contention tests.
 
 Inventory state is authoritative in PostgreSQL tables; Ordering state is derived from its immutable event stream. A placed order currently records SKU/quantity intent. An order remains unpriced intent until checkout accepts a Catalog quote; captured payment and committed stock are required for confirmation. The local dispatcher uses PostgreSQL. Catalog price authority, checkout capture/compensation and a two-leg payment journal now run through published contracts; warehouse sourcing and a separate Fulfillment context now carry confirmed allocations through picking, packing, durable dispatch and delivery recording. Kafka transport is now executable; CDC, replicated broker operation, full telemetry and the remaining laboratories are tracked in the backlog.
@@ -90,6 +91,8 @@ The [index-layout guide](docs/INDEXES.md) connects transactional index maintenan
 
 The [column-storage guide](docs/COLUMNSTORE.md) connects warehouse analytics, compression, row-group pruning, safe generated Go predicates and materialized grouping sets. Its cloud-warehouse section is an explicit design exercise, with distributed operation still tracked as future work.
 
+The [search guide](docs/SEARCH.md) connects text ranking, misspellings, spatial queries, exact vector baselines and HNSW recall to a seventh application context. Source-version fences exclude stale embeddings; the optional native pgvector profile retains actual diagnostic plans and repeated quality measurements.
+
 The planning inventory covers **14 chapters, 476 substantive headings, 61 glossary terms, 4,215 index occurrences, and 48 backend-pattern entries**. Every concept requires an implementation, executable experiment/model, or appropriate worked design exercise. Runtime profiles limit resources, not final scope.
 
 ```sh
@@ -103,6 +106,12 @@ make verify-indexes     # layouts, amplification, PostgreSQL plans and Go benchm
 make verify ID=C04-03    # scoped index/trade-off verification; local test DB required
 make verify-columnstore # compression, visibility, null semantics, native predicates and cube
 make verify ID=C04-04    # scoped column/analytics checks; Go compiler required, no services
+make verify-search      # inverted/KD/HNSW lab and isolated real PostgreSQL/pgvector tests
+make verify ID=C04-05    # scoped search verification; Docker required
+make verify-search-live # text/spatial API verification on the running default profile
+make up-search          # optional vector application profile; stop the active profile first
+ATLAS_SEARCH_VECTOR_ENABLED=true make verify-search-live
+make down-search        # retains its independent PostgreSQL volume
 make storage-demo       # five-engine warehouse comparison; writes artifacts/storage.json
 make integration        # fails if the local atlas_test binding is missing
 make verify-lifecycle   # expiry, late commit and allocation reversal over real HTTP

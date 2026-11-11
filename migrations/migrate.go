@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-//go:embed 000_platform/*.sql inventory/*.sql ordering/*.sql catalog/*.sql payments/*.sql checkout/*.sql fulfillment/*.sql messaging/*.sql
+//go:embed 000_platform/*.sql inventory/*.sql ordering/*.sql catalog/*.sql payments/*.sql checkout/*.sql fulfillment/*.sql messaging/*.sql search/*.sql
 var files embed.FS
 
 func Apply(ctx context.Context, pool *pgxpool.Pool) error {

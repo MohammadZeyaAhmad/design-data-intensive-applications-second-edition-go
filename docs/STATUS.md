@@ -1,6 +1,6 @@
 # Implementation status
 
-Updated 10 November 2026. The saved plan under `docs/plan/` is the original design baseline. This file records the actual implementation. Full book coverage remains the final release gate.
+Updated 11 November 2026. The saved plan under `docs/plan/` is the original design baseline. This file records the actual implementation. Full book coverage remains the final release gate.
 
 ## Working implementation
 
@@ -26,12 +26,14 @@ The tenth increment adds transactional heap/clustered/secondary/covering layouts
 
 The eleventh increment adds a bounded compressed column format, sorted immutable segments, validated row-group zone maps, a durable versioned delta and tombstone floors. Scalar AST, bitmap-batch and actually compiled native Go predicates match independent row queries, including SQL unknown values, updates and deletes. All eight tenant-preserving cube groupings update atomically with facts and match full reductions before/after rebuild and reopening. Eight native publication-kill cases and three codec/expression fuzzers supplement the lab tests. Compilation/process costs, logical byte counters and the absence of explicit SIMD/distributed cloud operation remain visible in the report.
 
+The twelfth increment adds tenant-local inverted text/position indexes, bounded fuzzy matching, a multidimensional KD tree, exact cosine/Euclidean retrieval and an actual seeded HNSW implementation. Persistent source versions/tombstones rebuild derived structures after changes and reopening. A seventh Search context provides authenticated PostgreSQL full-text/trigram/spatial APIs, immutable publication history and an optional pgvector profile. Source/model/revision fences exclude stale embeddings. The application suite now has **75 PostgreSQL integration tests**, plus **three native pgvector**, **three Kafka** and **three Temporal** tests. Repeated exact-versus-ANN reports expose recall, work, graph payload-memory estimates and six explicitly forced native HNSW plans. Synthetic vectors make no language-understanding claim.
+
 These pieces begin several large work packages; they do not complete those packages in full.
 
 | Plan package | Current status | Remaining scope |
 |---|---|---|
 | APP-01 | In progress: modules, local commands, source inventory, Compose, CI | Full guide/scenario manifests, deterministic harness, all profiles |
-| APP-02 | In progress: Six private contexts and published warehouse/Fulfillment contracts; shared transport/auth and import checks | Full domain map, warehouse registry, production authorization and remaining context features |
+| APP-02 | In progress: Seven private contexts including Search and published discovery/warehouse/Fulfillment contracts; shared transport/auth and import checks | Full domain map, warehouse registry, production authorization and remaining context features |
 | APP-03 | In progress: warehouse receive/reserve/commit/release/expire/reverse/ship; post-lock deadlines and independent streams | Single-SKU splits, transfers and broader policies |
 | APP-04 | In progress: event append/replay, snapshots, upcasters, immutable source, request identity and versioned provenance | Broader lifecycle/archival policies, production actor identities and compatibility rollout |
 | APP-05 | In progress: idempotent simulated capture/void/refund, unknown outcomes, immutable journal | Authorization separation, partial refunds, webhooks and real-provider adapter |
@@ -52,17 +54,19 @@ These pieces begin several large work packages; they do not complete those packa
 | C04-02 | In progress: custom B+ tree, page/structure checks, splits/merges, persistent free list, full-page redo and repeated-crash evidence | Full sub-concept audit, overflow values, denser layout and broader format/scale/concurrency variants |
 | C04-03 | In progress: transactional index layouts, controlled read/write/space accounting, sequential/random schedules, repeated benchmarks and real PostgreSQL plans | Full semantic audit, true cold-OS-cache/device experiments and broader scale/concurrency |
 | C04-04 | In progress: compressed columns, pruning, sorted segments/delta, three predicate modes, nullable grouping sets, atomic rollups and native publication tests | Full semantic audit, distributed/cloud operation, production event ingestion and broader format/scale/CPU work |
+| C04-05 | In progress: inverted/fuzzy text, KD spatial queries, exact/HNSW retrieval, real PostgreSQL/pgvector profiles and source-versioned embedding API | Full semantic audit, production ingestion/model lifecycle, larger scale, online graph maintenance and operational work |
 | C04-01 | In progress: append log, WAL/SSTables, sparse/Bloom indexes, two policies, durable manifest recovery, model/process fault tests and mature-engine comparison | Full sub-concept audit, compression and broader format/scale stress |
 | C05-05 | In progress: real Temporal workflow/activities, durable timers/signals, result receipts, versioned replay and restart evidence | Production deployment/retention, history repair and worker deployment routing |
 | Remaining packages | Planned | See the complete backlog; none is silently removed |
 
 ## Next implementation sequence
 
-1. Implement geospatial/full-text/vector search experiments while deepening storage formats, semantic audits, scale and cache/device experiments.
-2. Continue data models, replication, sharding, analytics and governance work against the full source inventory; deepen remaining application/operations work alongside them.
+1. Implement C03-01 relational/document/wide-column catalog models with equivalent query fixtures, update anomalies and measured repair/index choices.
+2. Deepen the storage/search semantic audits, formats, scale, model lifecycle and cache/device experiments; complete outstanding application/operations work alongside them.
+3. Continue the remaining data models, replication, sharding, analytics and governance packages against the complete source inventory.
 
 [Machine-readable progress](progress.json) retains all 88 package IDs. The [inventory lifecycle](../scenarios/inventory-lifecycle.json) and [Ordering](../scenarios/ordering-events.json) scenario manifests, together with [checkout/payments](../scenarios/checkout-payments.json), [warehouse/Fulfillment](../scenarios/warehouse-fulfillment.json), [workflow operations](../scenarios/workflow-operations.json), [Kafka transport](../scenarios/kafka-transport.json), [Temporal checkout](../scenarios/temporal-checkout.json), [storage/LSM](../scenarios/storage-lsm.json), and [B+ tree](../scenarios/storage-btree.json), record verified behaviors and evidence paths; they do not declare the much larger associated packages complete. `make coverage-check` validates their package IDs and file references in addition to the book inventory.
 
-The [index-layout scenario](../scenarios/storage-indexes.json) and [column-analytics scenario](../scenarios/storage-columns.json) bring the tracker to eleven verified manifests, with 24 packages in progress and 64 planned, retaining all 88 original IDs.
+The [index-layout scenario](../scenarios/storage-indexes.json), [column-analytics scenario](../scenarios/storage-columns.json) and [search-discovery scenario](../scenarios/search-discovery.json) bring the tracker to twelve verified manifests, with 25 packages in progress and 63 planned, retaining all 88 original IDs. These counts track packages started, not a percentage of completed book coverage.
 
 Real payment/carrier-network integration, returns, single-SKU warehouse splits, Kubernetes deployment, backup/restore workflows, Raft, CDC, and complete storage engines remain unfinished. Current capabilities are defined by the source and recorded validation, not by the eventual project scope.

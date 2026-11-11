@@ -14,7 +14,7 @@ go run ./cmd/guide verify-storage
 
 Each command runs the storage race tests and a repeatable comparison, then saves `artifacts/storage.json`. The test suite includes the map oracle, corruption checks, a power-loss filesystem model and real process kills. The ordinary `make test` includes all lab tests; `make verify` also generates the storage report.
 
-`C04-01` through `C04-04` are implemented scoped verification bindings. The [index/trade-off verification](INDEXES.md) additionally requires the local PostgreSQL test binding for real plans. The [column/analytics verification](COLUMNSTORE.md) uses the Go compiler for its native predicate mode and requires no services. Other plan IDs fail explicitly rather than running an unrelated broad check; their eventual interfaces remain in the original backlog.
+`C04-01` through `C04-05` are implemented scoped verification bindings. The [index/trade-off verification](INDEXES.md) additionally requires the local PostgreSQL test binding for real plans. The [column/analytics verification](COLUMNSTORE.md) uses the Go compiler for its native predicate mode and requires no services. The [search verification](SEARCH.md) starts its own isolated PostgreSQL/pgvector test profile. Other plan IDs fail explicitly rather than running an unrelated broad check; their eventual interfaces remain in the original backlog.
 
 For a report without rerunning tests:
 

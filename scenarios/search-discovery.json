@@ -1,0 +1,34 @@
+{
+  "id": "search-discovery",
+  "status": "verified",
+  "work_packages": ["APP-01", "APP-02", "APP-08", "C04-05"],
+  "commands": ["make verify-search", "make verify ID=C04-05", "go run ./cmd/guide verify-search", "make search-demo", "make integration-search-vector", "make verify-search-live", "ATLAS_SEARCH_VECTOR_ENABLED=true make verify-search-live"],
+  "assertions": [
+    "tenant-local inverted ranking, phrase positions and explicit fuzzy expansion preserve documented tokenization rules",
+    "bounded edit distance matches an independent full dynamic-programming reference",
+    "KD rectangles and spherical radius queries match independent scans including antimeridian and polar cases",
+    "exact cosine and Euclidean results define HNSW recall across degree and query budgets",
+    "graph build costs, payload-memory lower bounds and all repeated raw measurements are retained",
+    "updates, deletes and reopen rebuild derived indexes without stale-version resurrection",
+    "precommit rollback and unknown postcommit outcomes preserve durable source publication",
+    "invalid vectors, model mismatch and unbounded missing-tenant cache growth are rejected",
+    "real PostgreSQL English text, trigram and spatial queries exclude another tenant and stale rows",
+    "real HTTP auth, request replay, immutable provenance, invalid coordinates and disabled-vector responses are checked",
+    "native pgvector source/model versions and expected revisions fence stale and concurrent embedding publications",
+    "six actual forced HNSW plans and 216 raw recall samples compare eligible results against exact search",
+    "live vector HTTP publication, source invalidation, stale conflict, refresh and delete pass",
+    "synthetic/manual vectors, mixed-tenant recall effects and warm-cache timing limits are explicit"
+  ],
+  "evidence": [
+    "labs/ch04/search/search_test.go",
+    "labs/ch04/search/scenario_test.go",
+    "labs/ch04/search/scenario.go",
+    "tests/integration/search_test.go",
+    "tests/integration/search_vector_test.go",
+    "benchmarks/search/vector.go",
+    "cmd/guide/search.go",
+    "docs/SEARCH.md",
+    "docs/chapters/ch04/search-indexes.md",
+    "docs/VALIDATION.md"
+  ]
+}

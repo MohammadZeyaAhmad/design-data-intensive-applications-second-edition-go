@@ -1,0 +1,19 @@
+name: ddia-go-search-test
+services:
+  vector-postgres:
+    image: ${ATLAS_SEARCH_POSTGRES_IMAGE:-pgvector/pgvector@sha256:508c5290cda481d4f5f846446a26e9c1b804766828a394a5861de1b348a18b4c}
+    environment:
+      POSTGRES_USER: atlas
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run make configure}
+      POSTGRES_DB: atlas_dev
+    ports: ["127.0.0.1:${ATLAS_SEARCH_VECTOR_TEST_PORT:-16433}:5432"]
+    volumes:
+      - search_vector_test_data:/var/lib/postgresql
+      - ./init-test-db.sql:/docker-entrypoint-initdb.d/10-test.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, 'PGPASSWORD="$${POSTGRES_PASSWORD}" psql -h 127.0.0.1 -U atlas -d atlas_test -Atqc "SELECT 1"']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+volumes:
+  search_vector_test_data:

@@ -33,6 +33,8 @@ import (
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/payments/adapters/provider"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/config"
 	inboxdb "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/messaging/postgres"
+	searchhttp "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/search/adapters/httpapi"
+	searchdb "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/search/adapters/postgres"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/migrations"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/sync/errgroup"
@@ -50,10 +52,10 @@ func main() {
 
 func run(ctx context.Context, logger *slog.Logger) error {
 	if len(os.Args) != 2 {
-		return errors.New("usage: atlas serve|worker|provider|migrate|check|broker-init|broker-publisher|broker-consumer|broker-status|temporal-worker|temporal-dispatcher|temporal-check")
+		return errors.New("usage: atlas serve|worker|provider|migrate|check|search-vector-init|broker-init|broker-publisher|broker-consumer|broker-status|temporal-worker|temporal-dispatcher|temporal-check")
 	}
 	command := os.Args[1]
-	if command != "serve" && command != "worker" && command != "migrate" && command != "check" && command != "provider" && command != "broker-init" && command != "broker-publisher" && command != "broker-consumer" && command != "broker-status" && command != "temporal-worker" && command != "temporal-dispatcher" && command != "temporal-check" {
+	if command != "serve" && command != "worker" && command != "migrate" && command != "check" && command != "search-vector-init" && command != "provider" && command != "broker-init" && command != "broker-publisher" && command != "broker-consumer" && command != "broker-status" && command != "temporal-worker" && command != "temporal-dispatcher" && command != "temporal-check" {
 		return errors.New("unknown atlas command")
 	}
 	if err := config.LoadLocalEnv(".env"); err != nil {
@@ -93,6 +95,12 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	if command == "check" {
 		logger.Info("database and schema ready")
 		return nil
+	}
+	if command == "search-vector-init" {
+		if err = searchdb.EnsureVector(startup, pool); err != nil {
+			return err
+		}
+		return searchdb.CheckVector(startup, pool)
 	}
 
 	if strings.HasPrefix(command, "broker-") {
@@ -188,6 +196,17 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	mux.Handle("POST /v1/orders/{id}/checkout", checkoutHTTP)
 	mux.Handle("/v1/checkouts/", checkoutHTTP)
 	mux.Handle("/v1/catalog/", cathttp.New(catalogStore, keys))
+	vectorFlag := os.Getenv("ATLAS_SEARCH_VECTOR_ENABLED")
+	if vectorFlag != "" && vectorFlag != "false" && vectorFlag != "true" {
+		return errors.New("ATLAS_SEARCH_VECTOR_ENABLED must be true or false")
+	}
+	searchStore := &searchdb.Store{Pool: pool, VectorEnabled: vectorFlag == "true"}
+	if searchStore.VectorEnabled {
+		if err = searchdb.CheckVector(startup, pool); err != nil {
+			return err
+		}
+	}
+	mux.Handle("/v1/search/", searchhttp.New(searchStore, keys))
 	fulfillmentHTTP := fulfillhttp.New(fulfillmentStore, keys)
 	mux.Handle("/v1/shipments/", fulfillmentHTTP)
 	mux.Handle("GET /v1/orders/{id}/fulfillment", fulfillmentHTTP)

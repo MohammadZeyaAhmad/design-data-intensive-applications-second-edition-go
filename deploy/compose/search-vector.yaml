@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: ${ATLAS_SEARCH_POSTGRES_IMAGE:-pgvector/pgvector@sha256:508c5290cda481d4f5f846446a26e9c1b804766828a394a5861de1b348a18b4c}
+  search-vector-init:
+    image: ddia-go-atlas:dev
+    command: [search-vector-init]
+    environment:
+      ATLAS_DATABASE_URL: postgresql://atlas:${POSTGRES_PASSWORD:?run make configure}@postgres:5432/atlas_dev?sslmode=disable
+      NO_PROXY: postgres,localhost,127.0.0.1
+    init: true
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+  api:
+    environment:
+      ATLAS_SEARCH_VECTOR_ENABLED: "true"
+    depends_on:
+      search-vector-init: {condition: service_completed_successfully}

@@ -27,7 +27,7 @@ func TestDomainAndFeatureDependencyBoundaries(t *testing.T) {
 		}
 		for _, i := range f.Imports {
 			imp, _ := strconv.Unquote(i.Path.Value)
-			contexts := []string{"inventory", "ordering", "catalog", "payments", "checkout", "fulfillment"}
+			contexts := []string{"inventory", "ordering", "catalog", "payments", "checkout", "fulfillment", "search"}
 			for _, owner := range contexts {
 				if !strings.Contains(filepath.ToSlash(path), "/internal/"+owner+"/") {
 					continue

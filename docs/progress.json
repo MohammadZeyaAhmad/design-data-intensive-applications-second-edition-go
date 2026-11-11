@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-10",
+  "updated": "2026-11-11",
   "scope": "Full 88-package baseline; scenario verification does not close a whole package.",
   "packages": [
     {
@@ -116,7 +116,7 @@
     },
     {
       "id": "C04-05",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "id": "C05-01",
@@ -366,6 +366,7 @@
     "scenarios/storage-lsm.json",
     "scenarios/storage-btree.json",
     "scenarios/storage-indexes.json",
-    "scenarios/storage-columns.json"
+    "scenarios/storage-columns.json",
+    "scenarios/search-discovery.json"
   ]
 }

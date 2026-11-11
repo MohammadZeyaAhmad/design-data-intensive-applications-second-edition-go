@@ -6,6 +6,8 @@ COMPOSE_KAFKA = docker compose --env-file .env -f deploy/compose/compose.yaml -f
 COMPOSE = docker compose --env-file .env -f deploy/compose/compose.yaml -p ddia-go
 COMPOSE_TEMPORAL = docker compose --env-file .env -f deploy/compose/compose.yaml -f deploy/compose/temporal.yaml -p ddia-go
 COMPOSE_TEMPORAL_TEST = docker compose --env-file .env -f deploy/compose/compose.yaml -f deploy/compose/temporal.yaml -p ddia-go-temporal-test
+COMPOSE_SEARCH = docker compose --env-file .env -f deploy/compose/compose.yaml -f deploy/compose/search-vector.yaml -p ddia-go-search
+COMPOSE_SEARCH_TEST = docker compose --env-file .env -f deploy/compose/search-vector-test.yaml -p ddia-go-search-test
 
 configure:
 	go run ./cmd/guide configure
@@ -34,7 +36,7 @@ verify-orders:
 verify-recovery:
 	go run ./cmd/guide verify-recovery
 ifeq ($(strip $(ID)),)
-verify: test integration coverage-check lab storage-demo btree-demo index-demo tradeoffs-demo column-demo query-plans verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery
+verify: test integration coverage-check lab storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live
 else ifeq ($(ID),C04-01)
 verify: verify-storage
 else ifeq ($(ID),C04-02)
@@ -43,9 +45,11 @@ else ifeq ($(ID),C04-03)
 verify: verify-indexes
 else ifeq ($(ID),C04-04)
 verify: verify-columnstore
+else ifeq ($(ID),C04-05)
+verify: verify-search
 else
 verify:
-	@echo 'Scoped verification currently supports ID=C04-01 through C04-04; other plan IDs remain future interfaces.' >&2
+	@echo 'Scoped verification currently supports ID=C04-01 through C04-05; other plan IDs remain future interfaces.' >&2
 	@exit 2
 endif
 demo:
@@ -139,3 +143,21 @@ column-test:
 column-demo:
 	cd labs && go run ./cmd/lab columnstore -output ../artifacts/columnstore.json
 verify-columnstore: coverage-check column-test column-demo
+
+.PHONY: search-test search-demo verify-search verify-search-live up-search down-search integration-search-vector down-search-test
+search-test:
+	cd labs && go test -race -count=1 ./ch04/search
+search-demo:
+	cd labs && go run ./cmd/lab search -output ../artifacts/search.json
+verify-search: coverage-check search-test search-demo integration-search-vector
+verify-search-live:
+	go run ./cmd/guide verify-search-live
+up-search: configure build
+	$(COMPOSE_SEARCH) up --build -d --wait
+	go run ./cmd/guide wait
+down-search:
+	$(COMPOSE_SEARCH) down
+integration-search-vector: configure
+	@trap '$(COMPOSE_SEARCH_TEST) down' EXIT; $(COMPOSE_SEARCH_TEST) up -d --wait && go run ./cmd/guide verify-search-vector
+down-search-test:
+	$(COMPOSE_SEARCH_TEST) down

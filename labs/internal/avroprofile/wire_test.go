@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/labs/internal/avroprofile"
+	"github.com/twmb/avro"
 )
 
 func TestIndependentAvroGoldenRecordAndArrayBlocks(t *testing.T) {
@@ -60,5 +61,40 @@ func TestSchemaNumbersCannotRequestUnboundedPrecision(t *testing.T) {
 		if _, _, _, e := avroprofile.Compile([]byte(schema)); e == nil {
 			t.Fatal("out-of-profile numeric/logical metadata accepted")
 		}
+	}
+}
+
+func TestNormalizationPreservesEmptyArrayReaderDefaults(t *testing.T) {
+	writer, _, _, e := avroprofile.Compile([]byte(`{"type":"record","name":"R","fields":[{"name":"name","type":"string"}]}`))
+	if e != nil {
+		t.Fatal(e)
+	}
+	reader, _, full, e := avroprofile.Compile([]byte(`{"type":"record","name":"R","aliases":[],"fields":[{"name":"name","type":"string"},{"name":"tags","type":{"type":"array","items":"string"},"default":[]}]}`))
+	if e != nil {
+		t.Fatal(e)
+	}
+	if !bytes.Contains(full, []byte(`"default":[]`)) || !bytes.Contains(full, []byte(`"aliases":[]`)) {
+		t.Fatal("normalization changed empty arrays to null", string(full))
+	}
+	resolved, e := avro.Resolve(writer, reader)
+	if e != nil {
+		t.Fatal(e)
+	}
+	wire, e := writer.Encode(map[string]any{"name": "order"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	var value any
+	rest, e := resolved.Decode(wire, &value)
+	if e != nil || len(rest) != 0 {
+		t.Fatal(e)
+	}
+	result, ok := value.(map[string]any)
+	if !ok {
+		t.Fatal(value)
+	}
+	tags, ok := result["tags"].([]any)
+	if !ok || len(tags) != 0 || result["name"] != "order" {
+		t.Fatal("empty reader array default failed", result)
 	}
 }

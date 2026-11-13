@@ -81,7 +81,7 @@ func Normalize(b []byte) ([]byte, error) {
 				}
 				return m, nil
 			case '[':
-				var a []any
+				a := []any{}
 				for d.More() {
 					if len(a) >= 100 {
 						return nil, ErrBudget

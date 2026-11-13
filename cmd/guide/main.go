@@ -33,9 +33,26 @@ func main() {
 }
 func run() error {
 	if len(os.Args) != 2 {
-		return errors.New("usage: guide configure|doctor|wait|demo|demo-orders|demo-checkout|verify-checkout|verify-checkout-recovery|verify-fulfillment|verify-fulfillment-recovery|verify-operations|verify-kafka|verify-temporal|verify-storage|verify-btree|verify-indexes|verify-columnstore|verify-graph|verify-graph-services|verify-semantic|verify-semantic-services|verify-models|verify-models-live|verify-graphql|verify-graphql-live|verify-encoding|verify-avro|verify-evolution|evolution-demo|verify-rpc|rpc-demo|verify-rpc-live|verify-search|verify-search-vector|verify-search-live|verify-live|verify-lifecycle|verify-orders|verify-recovery|coverage")
+		return errors.New("usage: guide configure|doctor|wait|demo|demo-orders|demo-checkout|verify-checkout|verify-checkout-recovery|verify-fulfillment|verify-fulfillment-recovery|verify-operations|verify-kafka|verify-temporal|verify-storage|verify-btree|verify-indexes|verify-columnstore|verify-graph|verify-graph-services|verify-semantic|verify-semantic-services|verify-models|verify-models-live|verify-graphql|verify-graphql-live|verify-encoding|verify-avro|verify-evolution|evolution-demo|verify-rpc|rpc-demo|verify-rpc-live|verify-actors|actors-demo|actors-broker-demo|actors-postgres|verify-search|verify-search-vector|verify-search-live|verify-live|verify-lifecycle|verify-orders|verify-recovery|coverage")
 	}
 	command := os.Args[1]
+	if command == "actors-demo" || command == "actors-broker-demo" || command == "actors-postgres" {
+		if e := config.LoadLocalEnv(".env"); e != nil {
+			return e
+		}
+		args := []string{"run", "./cmd/lab", "actors", "-output", "../artifacts/actors.json"}
+		if command == "actors-broker-demo" {
+			args = []string{"run", "./cmd/lab", "actors-broker", "-output", "../artifacts/actors-broker.json"}
+		}
+		if command == "actors-postgres" {
+			args = []string{"test", "-race", "-tags=integration", "-count=1", "./ch05/actors/durable"}
+		}
+		cmd := exec.Command("go", args...)
+		cmd.Dir = "labs"
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
+	}
 	if command == "evolution-demo" || command == "rpc-demo" {
 		lab, output := "evolution", "../artifacts/evolution.json"
 		if command == "rpc-demo" {
@@ -50,7 +67,7 @@ func run() error {
 		cmd.Stderr = os.Stderr
 		return cmd.Run()
 	}
-	if command == "verify-graphql" || command == "verify-encoding" || command == "verify-avro" || command == "verify-evolution" || command == "verify-rpc" {
+	if command == "verify-graphql" || command == "verify-encoding" || command == "verify-avro" || command == "verify-evolution" || command == "verify-rpc" || command == "verify-actors" {
 		cmd := exec.Command("make", command)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

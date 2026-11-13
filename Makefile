@@ -9,6 +9,7 @@ COMPOSE_TEMPORAL_TEST = docker compose --env-file .env -f deploy/compose/compose
 COMPOSE_SEARCH = docker compose --env-file .env -f deploy/compose/compose.yaml -f deploy/compose/search-vector.yaml -p ddia-go-search
 COMPOSE_SEARCH_TEST = docker compose --env-file .env -f deploy/compose/search-vector-test.yaml -p ddia-go-search-test
 COMPOSE_GRAPH = docker compose --env-file .env -f deploy/compose/graph/compose.yaml -p ddia-go-graph
+COMPOSE_ACTORS = docker compose -f deploy/compose/actors/compose.yaml -p ddia-go-actors-test
 COMPOSE_ROUTING = docker compose --env-file .env -f deploy/compose/compose.yaml -f deploy/compose/routing/compose.yaml -p ddia-go
 COMPOSE_RDF = docker compose --env-file .env -f deploy/compose/rdf/compose.yaml -p ddia-go-rdf
 
@@ -39,7 +40,7 @@ verify-orders:
 verify-recovery:
 	go run ./cmd/guide verify-recovery
 ifeq ($(strip $(ID)),)
-verify: test integration coverage-check lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic graphql-demo graphql-postgres check-encoding-generated encoding-demo check-avro-generated avro-demo evolution-demo check-rpc-generated rpc-demo storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
+verify: test integration coverage-check lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic graphql-demo graphql-postgres check-encoding-generated encoding-demo check-avro-generated avro-demo evolution-demo check-rpc-generated rpc-demo actors-postgres actors-demo integration-actors storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
 else ifeq ($(ID),C03-01)
 verify: verify-models
 else ifeq ($(ID),C03-03)
@@ -66,9 +67,11 @@ else ifeq ($(ID),C05-03)
 verify: verify-evolution
 else ifeq ($(ID),C05-04)
 verify: verify-rpc
+else ifeq ($(ID),C05-06)
+verify: verify-actors
 else
 verify:
-	@echo 'Scoped verification supports ID=C03-01, C03-03 through C03-05, C04-01 through C04-05, C05-01 through C05-04; other plan IDs remain future interfaces.' >&2
+	@echo 'Scoped verification supports ID=C03-01, C03-03 through C03-05, C04-01 through C04-05, C05-01 through C05-04, C05-06; other plan IDs remain future interfaces.' >&2
 	@exit 2
 endif
 demo:
@@ -297,3 +300,28 @@ down-routing:
 	$(COMPOSE_ROUTING) rm --stop --force router rpc-left rpc-right
 verify-rpc-live:
 	go run ./cmd/guide verify-rpc-live
+
+.PHONY: actors-binaries actors-test actors-demo actors-postgres actors-broker-demo integration-actors verify-actors up-actors down-actors
+actors-binaries:
+	bash tools/actors-binaries.sh
+actors-test:
+	cd labs && go test -race -count=1 ./ch05/actors/... ./internal/childprocess ./internal/disposabledatabase
+actors-demo: actors-binaries
+	go run ./cmd/guide actors-demo
+actors-postgres:
+	go run ./cmd/guide actors-postgres
+actors-broker-demo: actors-binaries
+	go run ./cmd/guide actors-broker-demo
+integration-actors: actors-binaries
+	@if test -n "$${ATLAS_ACTORS_BROKERS:-}"; then go run ./cmd/guide actors-broker-demo; else trap '$(COMPOSE_ACTORS) down --volumes' EXIT; $(COMPOSE_ACTORS) up -d --wait && go run ./cmd/guide actors-broker-demo; fi
+verify-actors: coverage-check check-actors-contracts actors-test actors-postgres actors-demo integration-actors
+up-actors:
+	$(COMPOSE_ACTORS) up -d --wait
+down-actors:
+	$(COMPOSE_ACTORS) down --volumes
+
+.PHONY: generate-actors-contracts check-actors-contracts
+generate-actors-contracts:
+	bash tools/actors-contracts.sh generate
+check-actors-contracts:
+	bash tools/actors-contracts.sh check

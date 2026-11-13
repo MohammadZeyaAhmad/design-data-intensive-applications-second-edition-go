@@ -140,7 +140,7 @@
     },
     {
       "id": "C05-06",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "id": "C06-01",
@@ -375,6 +375,7 @@
     "scenarios/encoding-compatibility.json",
     "scenarios/avro-resolution.json",
     "scenarios/rolling-schema-evolution.json",
-    "scenarios/rpc-transport-failures.json"
+    "scenarios/rpc-transport-failures.json",
+    "scenarios/actor-messaging.json"
   ]
 }

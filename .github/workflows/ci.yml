@@ -61,6 +61,8 @@ jobs:
         run: make evolution-demo
       - name: Real REST/gRPC, discovery, lost reply and in-flight backend SIGKILL
         run: make rpc-demo
+      - name: Actor supervision, remote process loss and transactional PostgreSQL receipts
+        run: make check-actors-contracts actors-postgres actors-demo
       - name: Real pgvector profile, exact recall and search application tests
         run: make integration-search-vector
       - name: Real graph SQL and Neo4j profile, tenant fences and bounded paths
@@ -95,6 +97,8 @@ jobs:
         run: go test -run '^$' -fuzz '^FuzzQueryBudget$' -fuzztime=5s -parallel=2 ./api/graphql
       - name: Bounded encoding wire preflight fuzzing
         run: cd labs && go test -run '^$' -fuzz '^FuzzWirePreflight$' -fuzztime=5s -parallel=2 ./ch05/encoding
+      - name: Bounded actor message and version preflight fuzzing
+        run: cd labs && go test -run '^$' -fuzz '^FuzzMessagePreflight$' -fuzztime=5s -parallel=2 ./ch05/actors
       - name: Bounded Avro datum and container schema fuzzing
         run: |
           cd labs
@@ -136,6 +140,10 @@ jobs:
             artifacts/rpc.json
             artifacts/rpc-run-*
             artifacts/rpc-binaries/manifest.json
+            artifacts/actors.json
+            artifacts/actors-broker.json
+            artifacts/actors-run-*
+            artifacts/actors-binaries/manifest.json
       - name: Verify application builds independently of the lab workspace
         run: |
           GOWORK=off go build ./cmd/atlas ./cmd/guide ./cmd/admin ./cmd/schema ./cmd/router
@@ -156,6 +164,16 @@ jobs:
           ATLAS_MESSAGE_TRANSPORT=kafka make verify-live verify-orders verify-checkout verify-fulfillment verify-operations verify-graphql-live
       - name: Real Kafka acknowledgments and group rebalance
         run: make integration-kafka
+      - name: Real Kafka actor redelivery, competing consumers, fan-out and request/reply
+        run: make integration-actors
+      - name: Retain actor broker recovery report
+        uses: actions/upload-artifact@v4
+        with:
+          name: actor-broker-recovery
+          path: |
+            artifacts/actors-broker.json
+            artifacts/actors-run-*
+            artifacts/actors-binaries/manifest.json
       - name: Start Temporal checkout profile
         run: |
           make down-kafka
@@ -175,4 +193,4 @@ jobs:
       - name: Stop disposable stack
         if: always()
         run: |
-          if test -f .env; then make down-routing down-rdf down-graph down-search-test down-search down-temporal-test down-kafka-test down-temporal down-kafka; fi
+          if test -f .env; then make down-actors down-routing down-rdf down-graph down-search-test down-search down-temporal-test down-kafka-test down-temporal down-kafka; fi

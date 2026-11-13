@@ -1,0 +1,291 @@
+{
+  "asyncapi": "3.0.0",
+  "info": {
+    "title": "Atlas actor laboratory messaging",
+    "version": "1.0.0",
+    "description": "A finite real-Kafka comparison of transient actors and durable local effects; not an end-to-end exactly-once or replicated-durability contract."
+  },
+  "defaultContentType": "application/json",
+  "servers": {
+    "local": {
+      "host": "127.0.0.1:19094",
+      "protocol": "kafka",
+      "protocolVersion": "4.1.1"
+    }
+  },
+  "channels": {
+    "commands": {
+      "address": "atlas.actors.{runId}.commands",
+      "parameters": {
+        "runId": {
+          "description": "A fresh 24-character lowercase hexadecimal lab run identifier."
+        }
+      },
+      "messages": {
+        "Command": {
+          "$ref": "#/components/messages/Command"
+        }
+      },
+      "description": "Fresh owned topic, three partitions, replication factor one, 24-hour delete retention. Keys are UTF-8 tenant/warehouse/SKU, FNV-1a modulo three."
+    },
+    "replies": {
+      "address": "atlas.actors.{runId}.replies",
+      "parameters": {
+        "runId": {
+          "description": "A fresh 24-character lowercase hexadecimal lab run identifier."
+        }
+      },
+      "messages": {
+        "Response": {
+          "$ref": "#/components/messages/Response"
+        }
+      },
+      "description": "Fresh owned topic, three partitions, replication factor one, 24-hour delete retention. Keys are UTF-8 tenant/warehouse/SKU, FNV-1a modulo three."
+    }
+  },
+  "operations": {
+    "publishCommand": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/commands"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/commands/messages/Command"
+        }
+      ],
+      "reply": {
+        "channel": {
+          "$ref": "#/channels/replies"
+        },
+        "messages": [
+          {
+            "$ref": "#/channels/replies/messages/Response"
+          }
+        ]
+      }
+    },
+    "processCommand": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/commands"
+      },
+      "description": "One member per partition in a group; separate groups receive independent copies. Commit SQL effect and receipt, publish correlated reply, then acknowledge source offset."
+    },
+    "receiveReply": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/replies"
+      }
+    }
+  },
+  "components": {
+    "messages": {
+      "Command": {
+        "name": "InventoryActorCommand",
+        "contentType": "application/json",
+        "correlationId": {
+          "location": "$message.payload#/id"
+        },
+        "payload": {
+          "$ref": "#/components/schemas/Command"
+        }
+      },
+      "Response": {
+        "name": "InventoryActorResponse",
+        "contentType": "application/json",
+        "correlationId": {
+          "location": "$message.payload#/id"
+        },
+        "payload": {
+          "$ref": "#/components/schemas/Response"
+        }
+      }
+    },
+    "schemas": {
+      "Key": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tenant": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,63}$"
+          },
+          "warehouse": {
+            "type": "string",
+            "pattern": "^([a-z][a-z0-9-]{0,63})?$"
+          },
+          "sku": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+          }
+        },
+        "required": [
+          "tenant",
+          "sku"
+        ]
+      },
+      "State": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/Key"
+          },
+          "on_hand": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reserved": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "key",
+          "on_hand",
+          "reserved",
+          "version"
+        ]
+      },
+      "ActorRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/Key"
+          },
+          "incarnation": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$"
+          },
+          "generation": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "key",
+          "incarnation",
+          "generation"
+        ]
+      },
+      "Reply": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/State"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "ref": {
+            "$ref": "#/components/schemas/ActorRef"
+          }
+        },
+        "required": [
+          "state",
+          "replayed",
+          "ref"
+        ]
+      },
+      "Command": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "const": 1
+          },
+          "writer_revision": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+          },
+          "key": {
+            "$ref": "#/components/schemas/Key"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "receive.v1",
+              "reserve.v1"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "quantity": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000000000
+              },
+              "note": {
+                "type": "string",
+                "maxLength": 128,
+                "description": "Optional compatible annotation; runtime also caps its UTF-8 size at 128 bytes."
+              }
+            },
+            "required": [
+              "quantity"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "format",
+          "writer_revision",
+          "id",
+          "key",
+          "kind",
+          "data"
+        ],
+        "description": "Message bytes are capped at 4096; bounded decoder also enforces depth, key, container and token budgets. Unknown payload annotations must be preserved when relaying; business-semantic changes require a new operation version."
+      },
+      "Response": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "const": 1
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+          },
+          "key": {
+            "$ref": "#/components/schemas/Key"
+          },
+          "subscription": {
+            "type": "string",
+            "pattern": "^actors-[0-9a-f]{24}-(main|fanout)$"
+          },
+          "reply": {
+            "$ref": "#/components/schemas/Reply"
+          }
+        },
+        "required": [
+          "format",
+          "id",
+          "key",
+          "subscription",
+          "reply"
+        ]
+      }
+    }
+  }
+}

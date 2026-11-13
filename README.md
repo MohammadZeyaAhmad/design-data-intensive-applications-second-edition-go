@@ -61,6 +61,7 @@ make down
 - Actual old/new binary schema rollout, resumable bounded backfills, rollback/retirement guards and immutable versioned Catalog history replay.
 - REST/OpenAPI and generated gRPC over one Inventory feature, bounded idempotent retries, health-aware discovery/proxy routing and real timeout/cancellation/backend-kill recovery.
 - Bounded entity actors with local/remote messaging, supervision, generation/incarnation fences, actual transient loss and real Kafka/PostgreSQL crash-redelivery, fan-out and correlated replies.
+- Explicit Catalog display caching with memory/Redis, version-aware invalidation, hot-key coalescing, bounded tenant/dependency admission, retry budgets, circuit recovery and graceful drain.
 - Independent Go lab showing a lost-update schedule, connected to the real database contention tests.
 
 Inventory state is authoritative in PostgreSQL tables; Ordering state is derived from its immutable event stream. A placed order currently records SKU/quantity intent. An order remains unpriced intent until checkout accepts a Catalog quote; captured payment and committed stock are required for confirmation. The local dispatcher uses PostgreSQL. Catalog price authority, checkout capture/compensation and a two-leg payment journal now run through published contracts; warehouse sourcing and a separate Fulfillment context now carry confirmed allocations through picking, packing, durable dispatch and delivery recording. Kafka transport is now executable; CDC, replicated broker operation, full telemetry and the remaining laboratories are tracked in the backlog.
@@ -198,3 +199,5 @@ The supplied source currently has no open-source license grant; license selectio
 The [REST/gRPC guide](docs/RPC.md) adds published service contracts over one business feature, exact command identity across transports, shared deadlines and actual endpoint failure/discovery recovery. `make verify ID=C05-04` runs its isolated native drill; `make up-routing verify-rpc-live` verifies the optional routing containers.
 
 The [actor/message guide](docs/ACTORS.md) compares volatile actor mailboxes with actual durable Kafka delivery and transactional PostgreSQL effects. `make verify ID=C05-06` runs bounded runtime checks, real node/consumer kills, receipt recovery, competing consumers and independent subscriptions.
+
+The [caching/resilience guide](docs/RESILIENCE.md) adds authoritative-versus-display read contracts, native PostgreSQL/Redis checks, overload/cancellation tests and a finite HTTP load command. `make verify ID=APP-09` runs the scoped checks; `make up-resilience verify-resilience-live restore-default-cache` runs the real Redis outage drill and restores the default profile.

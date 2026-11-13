@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	api "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/catalog"
@@ -13,7 +14,9 @@ import (
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/commands"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/httpx"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/identity"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/resilience"
 	"net/http"
+	"strconv"
 )
 
 type catalogStore interface {
@@ -103,7 +106,47 @@ func New(store catalogStore, keys map[[32]byte]string) http.Handler {
 		httpx.JSON(w, 200, out)
 	})
 	mux.HandleFunc("GET /v1/catalog/products/{sku}", func(w http.ResponseWriter, r *http.Request) {
-		out, err := store.Product(r.Context(), auth.Tenant(r.Context()), r.PathValue("sku"))
+		mode := r.URL.Query().Get("consistency")
+		if len(r.URL.Query()["consistency"]) > 1 {
+			failure(w, api.ErrInvalid)
+			return
+		}
+		if mode != "" && mode != "strong" && mode != "cached" {
+			failure(w, api.ErrInvalid)
+			return
+		}
+		minimum := int64(0)
+		if values := r.URL.Query()["min_version"]; len(values) > 0 {
+			if len(values) != 1 {
+				failure(w, api.ErrInvalid)
+				return
+			}
+			var parseErr error
+			minimum, parseErr = strconv.ParseInt(values[0], 10, 64)
+			if parseErr != nil || minimum < 0 {
+				failure(w, api.ErrInvalid)
+				return
+			}
+		}
+		var out domain.Product
+		var err error
+		if mode == "cached" {
+			reader, ok := store.(ports.CachedProducts)
+			if !ok {
+				httpx.Problem(w, 503, "cache_read_not_configured")
+				return
+			}
+			var state string
+			out, state, err = reader.CachedProduct(r.Context(), auth.Tenant(r.Context()), r.PathValue("sku"), minimum)
+			w.Header().Set("X-Consistency", "bounded-stale")
+			w.Header().Set("X-Cache", state)
+		} else {
+			out, err = store.Product(r.Context(), auth.Tenant(r.Context()), r.PathValue("sku"))
+			w.Header().Set("X-Consistency", "authoritative")
+			if err == nil && out.Version < minimum {
+				err = api.ErrConflict
+			}
+		}
 		if err != nil {
 			failure(w, err)
 			return
@@ -141,6 +184,13 @@ func New(store catalogStore, keys map[[32]byte]string) http.Handler {
 }
 func failure(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		httpx.Problem(w, 504, "deadline_exceeded")
+	case errors.Is(err, context.Canceled):
+		httpx.Problem(w, 408, "request_canceled")
+	case errors.Is(err, resilience.ErrOverloaded) || errors.Is(err, resilience.ErrCircuitOpen) || errors.Is(err, resilience.ErrDraining) || errors.Is(err, resilience.ErrInvalidated):
+		w.Header().Set("Retry-After", "1")
+		httpx.Problem(w, 503, "catalog_overloaded_or_unavailable")
 	case errors.Is(err, domain.ErrInvalid) || errors.Is(err, api.ErrInvalid) || errors.Is(err, commands.ErrInvalid):
 		httpx.Problem(w, 400, "invalid_input")
 	case errors.Is(err, api.ErrNotFound):

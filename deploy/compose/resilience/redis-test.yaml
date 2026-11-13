@@ -1,0 +1,15 @@
+services:
+  redis:
+    # Official Redis 7.4.2-alpine, Linux amd64, pinned independently of the tag.
+    image: redis@sha256:519f0189dfdee3bc0bad61fb265fe73d864b5c64020e6579ad48a45c49965635
+    command: [redis-server, --save, '', --appendonly, 'no', --maxmemory, 32mb, --maxmemory-policy, allkeys-lru]
+    ports: ["127.0.0.1:16380:6379"]
+    user: "999:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 1s
+      timeout: 2s
+      retries: 20

@@ -33,7 +33,7 @@ func main() {
 }
 func run() error {
 	if len(os.Args) != 2 {
-		return errors.New("usage: guide configure|doctor|wait|demo|demo-orders|demo-checkout|verify-checkout|verify-checkout-recovery|verify-fulfillment|verify-fulfillment-recovery|verify-operations|verify-kafka|verify-temporal|verify-storage|verify-btree|verify-indexes|verify-columnstore|verify-graph|verify-graph-services|verify-semantic|verify-semantic-services|verify-models|verify-models-live|verify-graphql|verify-graphql-live|verify-encoding|verify-avro|verify-evolution|evolution-demo|verify-rpc|rpc-demo|verify-rpc-live|verify-actors|actors-demo|actors-broker-demo|actors-postgres|verify-search|verify-search-vector|verify-search-live|verify-live|verify-lifecycle|verify-orders|verify-recovery|coverage")
+		return errors.New("usage: guide verify-resilience|verify-resilience-live|configure|doctor|wait|demo|demo-orders|demo-checkout|verify-checkout|verify-checkout-recovery|verify-fulfillment|verify-fulfillment-recovery|verify-operations|verify-kafka|verify-temporal|verify-storage|verify-btree|verify-indexes|verify-columnstore|verify-graph|verify-graph-services|verify-semantic|verify-semantic-services|verify-models|verify-models-live|verify-graphql|verify-graphql-live|verify-encoding|verify-avro|verify-evolution|evolution-demo|verify-rpc|rpc-demo|verify-rpc-live|verify-actors|actors-demo|actors-broker-demo|actors-postgres|verify-search|verify-search-vector|verify-search-live|verify-live|verify-lifecycle|verify-orders|verify-recovery|coverage")
 	}
 	command := os.Args[1]
 	if command == "actors-demo" || command == "actors-broker-demo" || command == "actors-postgres" {
@@ -67,7 +67,7 @@ func run() error {
 		cmd.Stderr = os.Stderr
 		return cmd.Run()
 	}
-	if command == "verify-graphql" || command == "verify-encoding" || command == "verify-avro" || command == "verify-evolution" || command == "verify-rpc" || command == "verify-actors" {
+	if command == "verify-resilience" || command == "verify-graphql" || command == "verify-encoding" || command == "verify-avro" || command == "verify-evolution" || command == "verify-rpc" || command == "verify-actors" {
 		cmd := exec.Command("make", command)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -152,6 +152,8 @@ func run() error {
 		return err
 	}
 	switch command {
+	case "verify-resilience-live":
+		return verifyResilienceLive(c)
 	case "verify-graphql-live":
 		return verifyGraphQLLive(c)
 	case "verify-models-live":
@@ -369,7 +371,7 @@ func verify(c *client) error {
 	if _, err = c.expect("GET", "/v1/stock/"+sku, "", "", nil, 401); err != nil {
 		return err
 	}
-	var success, denied atomic.Int64
+	var success, denied, shed atomic.Int64
 	var wg sync.WaitGroup
 	errs := make(chan error, 100)
 	for i := range 100 {
@@ -386,6 +388,9 @@ func verify(c *client) error {
 				success.Add(1)
 			case 409:
 				denied.Add(1)
+			case 429, 503:
+				denied.Add(1)
+				shed.Add(1)
 			default:
 				errs <- fmt.Errorf("unexpected reservation status %d", status)
 			}
@@ -413,7 +418,7 @@ func verify(c *client) error {
 	if err = waitProjection(c, sku, stock); err != nil {
 		return err
 	}
-	return report("live", map[string]any{"passed": true, "concurrent_requests": 100, "accepted": success.Load(), "rejected": denied.Load(), "tenant_isolation": true, "projection_matches_authority": true})
+	return report("live", map[string]any{"passed": true, "concurrent_requests": 100, "accepted": success.Load(), "rejected": denied.Load(), "business_conflicts": denied.Load() - shed.Load(), "shed": shed.Load(), "physical_attempts": 100, "tenant_isolation": true, "projection_matches_authority": true})
 }
 
 func waitProjection(c *client, sku string, want domain.StockState) error {

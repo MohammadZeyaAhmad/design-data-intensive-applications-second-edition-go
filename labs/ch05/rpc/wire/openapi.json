@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Atlas Inventory REST contract",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "Executable reservation/stock subset. Other Atlas routes have their own context contracts. JSON integers are emitted as numbers; use an exact integer decoder. The gRPC contract uses protobuf int64 and millisecond expiry timestamps."
   },
   "servers": [
@@ -129,11 +129,19 @@
             }
           },
           "503": {
-            "description": "Not ready",
+            "description": "Capacity exhausted, draining or not ready",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Suggested delay in seconds; retain the same command identity when retrying",
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -144,6 +152,34 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body exceeds the finite 64 KiB admission bound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Workload token bucket exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Suggested delay in seconds; retain the same command identity when retrying",
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -254,11 +290,19 @@
             }
           },
           "503": {
-            "description": "Not ready",
+            "description": "Capacity exhausted, draining or not ready",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Suggested delay in seconds; retain the same command identity when retrying",
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -269,6 +313,34 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body exceeds the finite 64 KiB admission bound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Workload token bucket exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Suggested delay in seconds; retain the same command identity when retrying",
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -372,11 +444,19 @@
             }
           },
           "503": {
-            "description": "Not ready",
+            "description": "Capacity exhausted, draining or not ready",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Suggested delay in seconds; retain the same command identity when retrying",
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -387,6 +467,34 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body exceeds the finite 64 KiB admission bound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Workload token bucket exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Suggested delay in seconds; retain the same command identity when retrying",
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -504,11 +612,19 @@
             }
           },
           "503": {
-            "description": "Not ready",
+            "description": "Capacity exhausted, draining or not ready",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Suggested delay in seconds; retain the same command identity when retrying",
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -519,6 +635,34 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body exceeds the finite 64 KiB admission bound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Workload token bucket exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Suggested delay in seconds; retain the same command identity when retrying",
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -570,7 +714,7 @@
             }
           },
           "503": {
-            "description": "Not ready",
+            "description": "Database/schema unavailable or process draining",
             "content": {
               "application/json": {
                 "schema": {

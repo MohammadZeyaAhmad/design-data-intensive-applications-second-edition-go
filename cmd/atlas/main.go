@@ -35,6 +35,7 @@ import (
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/payments/adapters/provider"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/config"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/database"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/httpx"
 	inboxdb "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/messaging/postgres"
 	searchhttp "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/search/adapters/httpapi"
 	searchdb "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/search/adapters/postgres"
@@ -205,6 +206,11 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		address = "127.0.0.1:8080"
 	}
 	mux := http.NewServeMux()
+	cachedCatalog, closeCache, err := catalogCache(ctx, logger, dsn, catalogStore)
+	if err != nil {
+		return err
+	}
+	defer closeCache()
 	mux.HandleFunc("GET /openapi/inventory.json", inventoryspec.ServeHTTP)
 	graphqlHTTP, err := graphqlhttp.New(graphqlhttp.Options{Orders: orderStore, Catalog: catalogStore, TenantKeys: keys, CursorKey: []byte(os.Getenv("ATLAS_GRAPHQL_CURSOR_KEY"))})
 	if err != nil {
@@ -219,7 +225,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	checkoutHTTP := checkhttp.New(start.Handler{Catalog: catalogStore, Orders: orderCheckout}, checkoutStore, keys)
 	mux.Handle("POST /v1/orders/{id}/checkout", checkoutHTTP)
 	mux.Handle("/v1/checkouts/", checkoutHTTP)
-	mux.Handle("/v1/catalog/", cathttp.New(catalogStore, keys))
+	mux.Handle("/v1/catalog/", cathttp.New(cachedCatalog, keys))
 	vectorFlag := os.Getenv("ATLAS_SEARCH_VECTOR_ENABLED")
 	if vectorFlag != "" && vectorFlag != "false" && vectorFlag != "true" {
 		return errors.New("ATLAS_SEARCH_VECTOR_ENABLED must be true or false")
@@ -238,7 +244,11 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	return serveHTTP(ctx, logger, address, mux)
 }
 func serveHTTP(ctx context.Context, logger *slog.Logger, address string, handler http.Handler) error {
-	server := &http.Server{Addr: address, Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
+	admission, err := httpAdmission()
+	if err != nil {
+		return err
+	}
+	server := &http.Server{Addr: address, Handler: httpx.Guard(admission.Handler(handler), logger), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
 	done := make(chan error, 1)
 	go func() { done <- server.ListenAndServe() }()
 	logger.Info("Atlas API started", "address", address, "authentication", "development tenant keys")
@@ -249,10 +259,14 @@ func serveHTTP(ctx context.Context, logger *slog.Logger, address string, handler
 		}
 		return err
 	case <-ctx.Done():
+		admission.BeginDrain()
 		shutdown, stop := context.WithTimeout(context.Background(), 10*time.Second)
 		defer stop()
 		if err := server.Shutdown(shutdown); err != nil {
 			_ = server.Close()
+			return err
+		}
+		if err := admission.Drain(shutdown); err != nil {
 			return err
 		}
 		return nil

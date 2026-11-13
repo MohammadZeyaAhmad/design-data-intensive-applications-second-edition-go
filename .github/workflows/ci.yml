@@ -49,6 +49,8 @@ jobs:
         run: make integration
       - name: Source inventory and executable storage comparisons
         run: make coverage-check lab models-demo graph-demo semantic-demo storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans storage-bench
+      - name: Catalog cache authority, overload drain, bounded provider retries and real Redis fences
+        run: make resilience-postgres cache-demo integration-redis
       - name: Real catalog model queries, plans and ORM comparison
         run: make models-postgres
       - name: GraphQL composition, native batching and REST parity
@@ -113,6 +115,9 @@ jobs:
         with:
           name: storage-comparison
           path: |
+            artifacts/resilience-postgres.json
+            artifacts/resilience-redis.json
+            artifacts/cache-comparison.json
             artifacts/storage.json
             artifacts/btree.json
             artifacts/indexes.json
@@ -146,12 +151,23 @@ jobs:
             artifacts/actors-binaries/manifest.json
       - name: Verify application builds independently of the lab workspace
         run: |
-          GOWORK=off go build ./cmd/atlas ./cmd/guide ./cmd/admin ./cmd/schema ./cmd/router
+          GOWORK=off go build ./cmd/atlas ./cmd/guide ./cmd/admin ./cmd/schema ./cmd/router ./cmd/loadgen
           cd labs && GOWORK=off go build -o ../artifacts/lab-standalone ./cmd/lab
       - name: Start disposable API and worker stack
         run: make up
       - name: Live HTTP contention and restart recovery
         run: make verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
+      - name: Real Redis outage, unchanged API process and finite HTTP load
+        run: |
+          make up-resilience verify-resilience-live
+          make restore-default-cache
+      - name: Retain cache outage and bounded load observations
+        uses: actions/upload-artifact@v4
+        with:
+          name: resilience-recovery
+          path: |
+            artifacts/resilience-live.json
+            artifacts/resilience-load.json
       - name: Local routing containers and shared REST/gRPC command receipts
         run: |
           make up-routing verify-rpc-live
@@ -193,4 +209,4 @@ jobs:
       - name: Stop disposable stack
         if: always()
         run: |
-          if test -f .env; then make down-actors down-routing down-rdf down-graph down-search-test down-search down-temporal-test down-kafka-test down-temporal down-kafka; fi
+          if test -f .env; then make down-redis-test down-resilience down-actors down-routing down-rdf down-graph down-search-test down-search down-temporal-test down-kafka-test down-temporal down-kafka; fi

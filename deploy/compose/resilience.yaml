@@ -1,0 +1,21 @@
+services:
+  redis:
+    image: redis@sha256:519f0189dfdee3bc0bad61fb265fe73d864b5c64020e6579ad48a45c49965635
+    command: [redis-server, --save, '', --appendonly, 'no', --maxmemory, 32mb, --maxmemory-policy, allkeys-lru]
+    ports: ["127.0.0.1:16379:6379"]
+    user: "999:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 1s
+      timeout: 2s
+      retries: 20
+  api:
+    environment:
+      ATLAS_CACHE_BACKEND: redis
+      ATLAS_CACHE_ADDRESS: redis:6379
+      NO_PROXY: postgres,api,provider,redis,localhost,127.0.0.1
+    depends_on:
+      redis: {condition: service_healthy}

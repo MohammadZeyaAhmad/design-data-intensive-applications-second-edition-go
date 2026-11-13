@@ -11,6 +11,8 @@ COMPOSE_SEARCH_TEST = docker compose --env-file .env -f deploy/compose/search-ve
 COMPOSE_GRAPH = docker compose --env-file .env -f deploy/compose/graph/compose.yaml -p ddia-go-graph
 COMPOSE_ACTORS = docker compose -f deploy/compose/actors/compose.yaml -p ddia-go-actors-test
 COMPOSE_ROUTING = docker compose --env-file .env -f deploy/compose/compose.yaml -f deploy/compose/routing/compose.yaml -p ddia-go
+COMPOSE_RESILIENCE = docker compose --env-file .env -f deploy/compose/compose.yaml -f deploy/compose/resilience.yaml -p ddia-go
+COMPOSE_REDIS_TEST = docker compose -f deploy/compose/resilience/redis-test.yaml -p ddia-go-cache-test
 COMPOSE_RDF = docker compose --env-file .env -f deploy/compose/rdf/compose.yaml -p ddia-go-rdf
 
 configure:
@@ -40,7 +42,9 @@ verify-orders:
 verify-recovery:
 	go run ./cmd/guide verify-recovery
 ifeq ($(strip $(ID)),)
-verify: test integration coverage-check lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic graphql-demo graphql-postgres check-encoding-generated encoding-demo check-avro-generated avro-demo evolution-demo check-rpc-generated rpc-demo actors-postgres actors-demo integration-actors storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
+verify: test integration coverage-check resilience-test resilience-postgres cache-demo integration-redis lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic graphql-demo graphql-postgres check-encoding-generated encoding-demo check-avro-generated avro-demo evolution-demo check-rpc-generated rpc-demo actors-postgres actors-demo integration-actors storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
+else ifeq ($(ID),APP-09)
+verify: verify-resilience
 else ifeq ($(ID),C03-01)
 verify: verify-models
 else ifeq ($(ID),C03-03)
@@ -71,7 +75,7 @@ else ifeq ($(ID),C05-06)
 verify: verify-actors
 else
 verify:
-	@echo 'Scoped verification supports ID=C03-01, C03-03 through C03-05, C04-01 through C04-05, C05-01 through C05-04, C05-06; other plan IDs remain future interfaces.' >&2
+	@echo 'Scoped verification supports ID=APP-09, C03-01, C03-03 through C03-05, C04-01 through C04-05, C05-01 through C05-04, C05-06; other plan IDs remain future interfaces.' >&2
 	@exit 2
 endif
 demo:
@@ -325,3 +329,31 @@ generate-actors-contracts:
 	bash tools/actors-contracts.sh generate
 check-actors-contracts:
 	bash tools/actors-contracts.sh check
+
+.PHONY: resilience-test resilience-postgres cache-demo integration-redis verify-resilience verify-resilience-live up-resilience down-resilience down-redis-test
+resilience-test:
+	go test -race -count=1 ./internal/platform/resilience ./internal/catalog/adapters/cache ./internal/payments/adapters/provider
+	cd labs && go test -race -count=1 ./ch02/cache
+resilience-postgres:
+	ATLAS_RESILIENCE_REPORT="$(CURDIR)/artifacts/resilience-postgres.json" go test -race -tags=integration -run '^TestResilience' -count=1 ./tests/integration
+cache-demo:
+	cd labs && go run ./cmd/lab cache -output ../artifacts/cache-comparison.json
+integration-redis: configure
+	@trap '$(COMPOSE_REDIS_TEST) down --volumes' EXIT; $(COMPOSE_REDIS_TEST) up -d --wait && ATLAS_RESILIENCE_REDIS_REPORT="$(CURDIR)/artifacts/resilience-redis.json" go test -race -tags=integration,redis -run '^TestResilienceRedis' -count=1 ./tests/integration
+verify-resilience: coverage-check resilience-test resilience-postgres cache-demo integration-redis
+verify-resilience-live:
+	go run ./cmd/guide verify-resilience-live
+up-resilience: configure build
+	$(COMPOSE_RESILIENCE) up --build -d
+	go run ./cmd/guide wait
+down-resilience:
+	$(COMPOSE_RESILIENCE) down
+down-redis-test:
+	$(COMPOSE_REDIS_TEST) down --volumes
+
+.PHONY: restore-default-cache
+restore-default-cache:
+	ATLAS_CACHE_BACKEND=memory ATLAS_CACHE_ADDRESS= $(COMPOSE) up -d api
+	$(COMPOSE_RESILIENCE) stop redis
+	$(COMPOSE_RESILIENCE) rm -f -v redis
+	go run ./cmd/guide wait

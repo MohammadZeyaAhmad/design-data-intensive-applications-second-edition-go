@@ -1,0 +1,15 @@
+# Cache and overload recovery
+
+Use [the guide](../RESILIENCE.md) to start the local Redis profile and run `make verify-resilience-live`. The drill owns only the named development Redis and creates fresh synthetic product/quote identities. It never flushes Redis globally, restarts healthy API/worker/provider services or modifies source prices outside its fixture.
+
+When cache hits disappear, first distinguish a corrupt/expired display record from connection failure or an open cache circuit. `X-Cache: fallback` means a source read succeeded without relying on the cache; default product reads and quotes still use the authoritative path. Cache shutdown logs expose logical hits, misses, negative results, invalidation failures, load/coalescing bounds and per-policy retry/circuit counters. External metrics and alerts remain OPS-01 work.
+
+Restore the Redis listener/container rather than restarting every application component. The client probes again after its open interval and refills from PostgreSQL. Redis contains no required durable state. Advisory fences can disappear; stale display entries must not be used to infer the current price or to repair source rows. For a known catalog update, use `consistency=strong` or the corresponding `min_version` on a display read. A minimum ahead of the source is an application progress/conflict condition, not evidence to overwrite the database.
+
+A failed LISTEN connection reconnects independently. Notifications are not replayed, so missed changes depend on finite entry TTLs and fresh source reads. A 750 ms body TTL is not an absolute freshness SLA. If the source is unavailable, a fresh load fails; this adapter does not extend stale values indefinitely. Failed invalidation after commit must not cause a new command identity or a duplicate business write.
+
+Treat 429/503 as finite admission decisions. Inspect whether the read, write, per-tenant or dependency budget is saturated; keep the existing idempotency key and immutable intent when retrying commands. Do not add application, HTTP-library and durable-workflow retries at every layer. Provider mutation retries already belong to the durable workflow by default. Only increase limits after measuring database pool pressure and latency; a larger queue consumes deadline and memory without creating capacity.
+
+On shutdown, readiness falls and queued calls are rejected. Accepted active calls may finish within the server drain. A canceled request might already have committed, so reconcile through the saved command receipt or provider intent; cancellation is not proof of rollback. SIGKILL recovery still relies on SQL transactions, idempotency and durable jobs rather than the transient queue.
+
+After the local drill, `make restore-default-cache` returns the running API to its default memory backend and removes only the disposable application Redis. `make down-redis-test` removes an interrupted dedicated Redis fixture. `make down-resilience` stops the full named application profile and preserves its PostgreSQL volume. Reports contain finite synthetic observations, without credentials.

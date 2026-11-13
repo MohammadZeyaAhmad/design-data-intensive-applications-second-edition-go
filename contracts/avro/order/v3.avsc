@@ -1,0 +1,19 @@
+{
+  "type": "record", "name": "OrderSnapshot", "namespace": "atlas.encoding",
+  "doc": "Synthetic snapshot v3; reader alias and int-to-long promotion are directional.",
+  "fields": [
+    {"name": "order_id", "type": "string"},
+    {"name": "display_name", "aliases": ["customer_name"], "type": "string"},
+    {"name": "tenant_id", "type": "string"},
+    {"name": "version", "type": "long"},
+    {"name": "lines", "type": {"type": "array", "items": {
+      "type": "record", "name": "Line", "fields": [
+        {"name": "quantity", "type": "long"}, {"name": "sku", "type": "string"}
+      ]
+    }}},
+    {"name": "expedited", "type": ["boolean", "null"], "default": false},
+    {"name": "currency", "type": "string", "default": "EUR"},
+    {"name": "discount_minor", "type": ["long", "null"], "default": 0},
+    {"name": "labels", "type": {"type": "map", "values": "string"}, "default": {}}
+  ]
+}

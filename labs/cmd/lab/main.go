@@ -33,6 +33,9 @@ func run(args []string) error {
 	if len(args) > 0 && args[0] == "encoding" {
 		return runEncoding(args[1:])
 	}
+	if len(args) > 0 && args[0] == "avro" {
+		return runAvro(args[1:])
+	}
 	if len(args) > 0 && (args[0] == "semantic" || args[0] == "semantic-services" || args[0] == "graph" || args[0] == "graph-services" || args[0] == "models" || args[0] == "lsm" || args[0] == "btree" || args[0] == "tradeoffs" || args[0] == "indexes" || args[0] == "columnstore" || args[0] == "search") {
 		flags := flag.NewFlagSet("lab "+args[0], flag.ContinueOnError)
 		rowsHelp := "synthetic warehouse/catalog rows (32..4096)"
@@ -110,7 +113,7 @@ func run(args []string) error {
 		return e
 	}
 	if len(args) != 1 || args[0] != "lost-update" {
-		return errors.New("usage: lab encoding [-runs N] [-iterations N] [-output path] | lost-update | semantic|semantic-services|graph|graph-services|models|lsm|btree|tradeoffs|indexes|columnstore|search [-rows N] [-runs N] [-output path] [-workdir path]")
+		return errors.New("usage: lab avro [-runs N] [-iterations N] [-output path] [-workdir path] | encoding [-runs N] [-iterations N] [-output path] | lost-update | semantic|semantic-services|graph|graph-services|models|lsm|btree|tradeoffs|indexes|columnstore|search [-rows N] [-runs N] [-output path] [-workdir path]")
 	}
 	report := lostupdate.Run()
 	if !report.ExpectedCounterexample || report.UnsafeFinal != 1 || report.AtomicFinal != 2 {

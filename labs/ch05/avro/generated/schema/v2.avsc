@@ -1,0 +1,19 @@
+{
+  "type": "record", "name": "OrderSnapshot", "namespace": "atlas.encoding",
+  "doc": "Synthetic snapshot v2; reorder fields, retire a defaulted field, add reader defaults.",
+  "fields": [
+    {"name": "version", "type": "long"},
+    {"name": "tenant_id", "type": "string"},
+    {"name": "order_id", "type": "string"},
+    {"name": "customer_name", "type": "string"},
+    {"name": "lines", "type": {"type": "array", "items": {
+      "type": "record", "name": "Line", "fields": [
+        {"name": "sku", "type": "string"}, {"name": "quantity", "type": "int"}
+      ]
+    }}},
+    {"name": "currency", "type": "string", "default": "USD"},
+    {"name": "expedited", "type": ["null", "boolean"], "default": null},
+    {"name": "discount_minor", "type": ["null", "long"], "default": null},
+    {"name": "labels", "type": {"type": "map", "values": "string"}, "default": {}}
+  ]
+}

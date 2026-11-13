@@ -1,0 +1,17 @@
+{
+  "type": "record", "name": "OrderSnapshot", "namespace": "atlas.encoding",
+  "doc": "Synthetic order snapshot v1; immutable writer contract.",
+  "fields": [
+    {"name": "tenant_id", "type": "string"},
+    {"name": "order_id", "type": "string"},
+    {"name": "customer_name", "type": "string"},
+    {"name": "lines", "type": {"type": "array", "items": {
+      "type": "record", "name": "Line", "fields": [
+        {"name": "sku", "type": "string"}, {"name": "quantity", "type": "int"}
+      ]
+    }}},
+    {"name": "version", "type": "long"},
+    {"name": "expedited", "type": ["null", "boolean"], "default": null},
+    {"name": "legacy_note", "type": ["null", "string"], "default": null}
+  ]
+}

@@ -1,6 +1,6 @@
 # Implementation status
 
-Updated 12 November 2026. The saved plan under `docs/plan/` is the original design baseline. This file records the actual implementation. Full book coverage remains the final release gate.
+Updated 13 November 2026. The saved plan under `docs/plan/` is the original design baseline. This file records the actual implementation. Full book coverage remains the final release gate.
 
 ## Working implementation
 
@@ -40,6 +40,8 @@ The sixteenth increment adds a real authenticated GraphQL read endpoint over pub
 
 The seventeenth increment adds gob/JSON/XML/MessagePack/Protobuf/Thrift Binary/Compact snapshots with real generated schemas/clients, JSON Schema validation and bounded decoding. Default reports retain **126 byte/CPU samples, 28 compatibility cases, 17 relays, eight generated Thrift RPC pairs and twelve semantic observations**. Native Protobuf relays preserve unknown fields while typed projections and generated Thrift readers lose them. Numeric narrowing, ProtoJSON rename and actual Thrift Go default/presence differences are explicit. Gob uses a constrained Linux child; production event formats remain unchanged. The normal PostgreSQL suite remains **83** tests.
 
+The eighteenth increment adds real Avro resolution across three immutable schemas, generated structs/dynamic maps, canonical-versus-full schema identity and standard single-object lookup. Reports retain **54 raw samples, 18 matrix entries, 26 evolution rules, four relays and nine observations**. Six actual null/deflate OCF datasets keep their full writer schemas and replay with only a current reader registered. Content-addressed manifests prevent replacement and check complete file integrity; captured catalog columns generate runtime schemas by stable source ordinal. Resource bounds cover schema parsing, binary counts and decompression. The normal PostgreSQL suite remains **83** tests.
+
 | Plan package | Current status | Remaining scope |
 |---|---|---|
 | APP-01 | In progress: modules, local commands, source inventory, Compose, CI | Full guide/scenario manifests, deterministic harness, all profiles |
@@ -56,6 +58,7 @@ The seventeenth increment adds gob/JSON/XML/MessagePack/Protobuf/Thrift Binary/C
 | C03-04 | In progress: RDF identities/codec/indexes, actual SPARQL/Turtle, bounded positive Datalog fixed points, five-backend mutation parity and owned native profile | Full sub-concept audit, broader interoperability, scale, inference decisions and operations |
 | C03-05 | In progress: actual GraphQL read composition, published batched readers, signed keyset cursors, field-policy/tenant checks, query budgets and native REST parity | Full semantic audit, broader fields/identity policy, mixed-version schema rollout, scale and operations |
 | C05-01 | In progress: seven bounded codecs, JSON Schema/IDL generation, version/relay matrices, generated Thrift RPC, numeric/default/unknown probes and repeated byte/CPU reports | Complete sub-concept audit, broader interoperability/scale and production mixed-version deployment operation |
+| C05-02 | In progress: actual Avro encoding/resolution, generated/dynamic schemas, immutable full-schema registry, standard single objects, native OCF archives and exact historical replay | Full sub-concept/cross-language audit, broader logical/recursive forms, larger exports and external registry/retention operation |
 | C05-03 | In progress: additive migrations and legacy placement upcasting | Mixed-version rollout/backfill/contract compatibility suite |
 | C12-04 | In progress: immutable order facts and deterministic replay | Full retention/archive/privacy policies and CDC comparisons |
 | C13-02 | In progress: one-order rebuild, snapshot fallback and live resumption | Shadow generations and batch/stream/all-stream convergence |
@@ -76,12 +79,12 @@ The seventeenth increment adds gob/JSON/XML/MessagePack/Protobuf/Thrift Binary/C
 
 ## Next implementation sequence
 
-1. Implement C05-02 Avro with immutable writer/reader schemas, defaults/unions/promotion, schema fingerprints and actual writer-schema lookup; verify both permitted and rejected evolution.
+1. Implement C05-03 expand/backfill/validate/contract with resumable throttled backfills, mixed application versions, rollback windows and independently versioned dataflow contracts.
 2. Deepen model/storage/search semantic audits, schema rollout, formats, scale, model lifecycle and cache/device experiments; complete outstanding application/operations work alongside them.
 3. Continue the remaining data models, replication, sharding, analytics and governance packages against the complete source inventory.
 
 [Machine-readable progress](progress.json) retains all 88 package IDs. The [inventory lifecycle](../scenarios/inventory-lifecycle.json) and [Ordering](../scenarios/ordering-events.json) scenario manifests, together with [checkout/payments](../scenarios/checkout-payments.json), [warehouse/Fulfillment](../scenarios/warehouse-fulfillment.json), [workflow operations](../scenarios/workflow-operations.json), [Kafka transport](../scenarios/kafka-transport.json), [Temporal checkout](../scenarios/temporal-checkout.json), [storage/LSM](../scenarios/storage-lsm.json), and [B+ tree](../scenarios/storage-btree.json), record verified behaviors and evidence paths; they do not declare the much larger associated packages complete. `make coverage-check` validates their package IDs and file references in addition to the book inventory.
 
-The [index-layout scenario](../scenarios/storage-indexes.json), [column-analytics scenario](../scenarios/storage-columns.json), [search-discovery scenario](../scenarios/search-discovery.json), [catalog-model scenario](../scenarios/catalog-models.json), [property-graph scenario](../scenarios/property-graphs.json), [semantic-graph scenario](../scenarios/semantic-graphs.json), [GraphQL-read scenario](../scenarios/graphql-reads.json) and [encoding scenario](../scenarios/encoding-compatibility.json) bring the tracker to seventeen verified manifests, with 30 packages in progress and 58 planned, retaining all 88 original IDs. These counts track packages started, not a percentage of completed book coverage.
+The [index-layout scenario](../scenarios/storage-indexes.json), [column-analytics scenario](../scenarios/storage-columns.json), [search-discovery scenario](../scenarios/search-discovery.json), [catalog-model scenario](../scenarios/catalog-models.json), [property-graph scenario](../scenarios/property-graphs.json), [semantic-graph scenario](../scenarios/semantic-graphs.json), [GraphQL-read scenario](../scenarios/graphql-reads.json), [encoding scenario](../scenarios/encoding-compatibility.json) and [Avro scenario](../scenarios/avro-resolution.json) bring the tracker to eighteen verified manifests, with 31 packages in progress and 57 planned, retaining all 88 original IDs. These counts track packages started, not a percentage of completed book coverage.
 
 Real payment/carrier-network integration, returns, single-SKU warehouse splits, Kubernetes deployment, backup/restore workflows, Raft, CDC, and complete storage engines remain unfinished. Current capabilities are defined by the source and recorded validation, not by the eventual project scope.

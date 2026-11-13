@@ -38,7 +38,7 @@ verify-orders:
 verify-recovery:
 	go run ./cmd/guide verify-recovery
 ifeq ($(strip $(ID)),)
-verify: test integration coverage-check lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic graphql-demo graphql-postgres check-encoding-generated encoding-demo storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
+verify: test integration coverage-check lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic graphql-demo graphql-postgres check-encoding-generated encoding-demo check-avro-generated avro-demo storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
 else ifeq ($(ID),C03-01)
 verify: verify-models
 else ifeq ($(ID),C03-03)
@@ -59,9 +59,11 @@ else ifeq ($(ID),C04-05)
 verify: verify-search
 else ifeq ($(ID),C05-01)
 verify: verify-encoding
+else ifeq ($(ID),C05-02)
+verify: verify-avro
 else
 verify:
-	@echo 'Scoped verification supports ID=C03-01, C03-03 through C03-05, C04-01 through C04-05 and C05-01; other plan IDs remain future interfaces.' >&2
+	@echo 'Scoped verification supports ID=C03-01, C03-03 through C03-05, C04-01 through C04-05, C05-01 and C05-02; other plan IDs remain future interfaces.' >&2
 	@exit 2
 endif
 demo:
@@ -241,3 +243,14 @@ generate-encoding:
 check-encoding-generated:
 	bash tools/encoding-generated.sh check
 verify-encoding: coverage-check check-encoding-generated encoding-test encoding-demo encoding-bench
+
+.PHONY: avro-test avro-demo generate-avro check-avro-generated verify-avro
+avro-test:
+	cd labs && go test -race -count=1 ./ch05/avro ./internal/avroprofile ./cmd/avro-gen
+avro-demo:
+	cd labs && go run ./cmd/lab avro -output ../artifacts/avro.json
+generate-avro:
+	bash tools/avro-generated.sh generate
+check-avro-generated:
+	bash tools/avro-generated.sh check
+verify-avro: coverage-check check-avro-generated avro-test avro-demo

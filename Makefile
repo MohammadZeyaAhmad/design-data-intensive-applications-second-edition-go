@@ -9,6 +9,7 @@ COMPOSE_TEMPORAL_TEST = docker compose --env-file .env -f deploy/compose/compose
 COMPOSE_SEARCH = docker compose --env-file .env -f deploy/compose/compose.yaml -f deploy/compose/search-vector.yaml -p ddia-go-search
 COMPOSE_SEARCH_TEST = docker compose --env-file .env -f deploy/compose/search-vector-test.yaml -p ddia-go-search-test
 COMPOSE_GRAPH = docker compose --env-file .env -f deploy/compose/graph/compose.yaml -p ddia-go-graph
+COMPOSE_ROUTING = docker compose --env-file .env -f deploy/compose/compose.yaml -f deploy/compose/routing/compose.yaml -p ddia-go
 COMPOSE_RDF = docker compose --env-file .env -f deploy/compose/rdf/compose.yaml -p ddia-go-rdf
 
 configure:
@@ -38,7 +39,7 @@ verify-orders:
 verify-recovery:
 	go run ./cmd/guide verify-recovery
 ifeq ($(strip $(ID)),)
-verify: test integration coverage-check lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic graphql-demo graphql-postgres check-encoding-generated encoding-demo check-avro-generated avro-demo evolution-demo storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
+verify: test integration coverage-check lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic graphql-demo graphql-postgres check-encoding-generated encoding-demo check-avro-generated avro-demo evolution-demo check-rpc-generated rpc-demo storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
 else ifeq ($(ID),C03-01)
 verify: verify-models
 else ifeq ($(ID),C03-03)
@@ -63,9 +64,11 @@ else ifeq ($(ID),C05-02)
 verify: verify-avro
 else ifeq ($(ID),C05-03)
 verify: verify-evolution
+else ifeq ($(ID),C05-04)
+verify: verify-rpc
 else
 verify:
-	@echo 'Scoped verification supports ID=C03-01, C03-03 through C03-05, C04-01 through C04-05, C05-01 through C05-03; other plan IDs remain future interfaces.' >&2
+	@echo 'Scoped verification supports ID=C03-01, C03-03 through C03-05, C04-01 through C04-05, C05-01 through C05-04; other plan IDs remain future interfaces.' >&2
 	@exit 2
 endif
 demo:
@@ -266,3 +269,31 @@ evolution-test:
 evolution-demo: evolution-binaries
 	go run ./cmd/guide evolution-demo
 verify-evolution: coverage-check check-catalog-generated evolution-test evolution-demo
+
+.PHONY: generate-rpc check-rpc-generated rpc-binaries rpc-test rpc-demo verify-rpc
+generate-rpc:
+	bash tools/rpc-generated.sh generate
+check-rpc-generated:
+	bash tools/rpc-generated.sh check
+rpc-binaries:
+	bash tools/rpc-binaries.sh
+rpc-test:
+	go test -race -count=1 ./api/grpc/... ./internal/inventory/... ./internal/platform/auth ./internal/platform/httpx ./internal/platform/routing ./tests/architecture
+	cd labs && go test -race -count=1 ./ch05/rpc/...
+	go test -race -tags=integration -count=1 -run '^TestRPC' ./tests/integration
+rpc-demo: rpc-binaries
+	go run ./cmd/guide rpc-demo
+verify-rpc: coverage-check check-rpc-generated rpc-test rpc-demo
+
+.PHONY: routing-build up-routing down-routing verify-rpc-live
+routing-build:
+	mkdir -p bin
+	CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o bin/router ./cmd/router
+up-routing: configure build routing-build
+	chmod 0755 deploy/compose/routing/registry
+	chmod 0644 deploy/compose/routing/registry/registry.json
+	$(COMPOSE_ROUTING) up --build -d --wait rpc-left rpc-right router
+down-routing:
+	$(COMPOSE_ROUTING) rm --stop --force router rpc-left rpc-right
+verify-rpc-live:
+	go run ./cmd/guide verify-rpc-live

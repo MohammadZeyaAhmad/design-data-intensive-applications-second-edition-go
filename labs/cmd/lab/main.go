@@ -30,6 +30,9 @@ func main() {
 	}
 }
 func run(args []string) error {
+	if len(args) > 0 && args[0] == "rpc" {
+		return runRPC(args[1:])
+	}
 	if len(args) > 0 && args[0] == "evolution" {
 		return runEvolution(args[1:])
 	}
@@ -116,7 +119,7 @@ func run(args []string) error {
 		return e
 	}
 	if len(args) != 1 || args[0] != "lost-update" {
-		return errors.New("usage: lab evolution [-rows N] [-binaries path] [-output path] [-workdir path] | avro [-runs N] [-iterations N] [-output path] [-workdir path] | encoding [-runs N] [-iterations N] [-output path] | lost-update | semantic|semantic-services|graph|graph-services|models|lsm|btree|tradeoffs|indexes|columnstore|search [-rows N] [-runs N] [-output path] [-workdir path]")
+		return errors.New("usage: lab rpc [-binaries path] [-output path] [-workdir path] | evolution [-rows N] [-binaries path] [-output path] [-workdir path] | avro [-runs N] [-iterations N] [-output path] [-workdir path] | encoding [-runs N] [-iterations N] [-output path] | lost-update | semantic|semantic-services|graph|graph-services|models|lsm|btree|tradeoffs|indexes|columnstore|search [-rows N] [-runs N] [-output path] [-workdir path]")
 	}
 	report := lostupdate.Run()
 	if !report.ExpectedCounterexample || report.UnsafeFinal != 1 || report.AtomicFinal != 2 {

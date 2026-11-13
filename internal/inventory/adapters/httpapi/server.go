@@ -171,6 +171,17 @@ func (s server) result(w http.ResponseWriter, status int, out ports.Outcome, rep
 	write(w, status, out)
 }
 func (s server) failure(w http.ResponseWriter, err error) {
+	var sqlError interface{ SQLState() string }
+	if errors.As(err, &sqlError) {
+		if sqlError.SQLState() == "57014" {
+			problem(w, 504, "database_budget_exceeded")
+			return
+		}
+		if sqlError.SQLState() == "55P03" {
+			problem(w, 503, "database_busy")
+			return
+		}
+	}
 	switch {
 	case errors.Is(err, domain.ErrInvalidInput):
 		problem(w, 400, "invalid_input")

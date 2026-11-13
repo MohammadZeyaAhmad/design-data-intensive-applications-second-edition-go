@@ -1,1 +1,3 @@
 * text=auto eol=lf
+# Canonical .proto files are reviewed; descriptor sets reproduce from the IDL.
+*.pb binary

@@ -60,3 +60,7 @@ Successful retries return the original saved snapshot: retrying a reservation af
 Errors use `{"error":{"code":"..."}}`: 400 invalid input/JSON, 401 unauthorized, 404 not found, 409 insufficient stock/idempotency conflict/invalid transition, 415 unsupported media type, 504 deadline, and 500 internal error. Internal database details are logged server-side rather than returned to clients.
 
 Workflow-owned reservations are managed through the published checkout contract. Ordinary commitment/release/reversal endpoints reject those IDs; cancel a pending checkout to request compensation. After source confirmation, Fulfillment owns physical handoff; checkout cancellation cannot undo it. Permanent step-close markers prevent a delayed workflow reserve from recreating an already compensated hold.
+
+## Published service contracts and request budgets
+
+The [OpenAPI 3.1 reservation/stock subset](../api/openapi/inventory/openapi.json) is served at `GET /openapi/inventory.json`. The [REST/gRPC guide](RPC.md) explains the second adapter, shared command receipts, exact integer/timestamp representations and native transport failures. Inventory requests may provide one `X-Request-Timeout-Ms` value from 1 through 10000; an earlier parent deadline wins. A timeout may follow a commit, so retries must retain the original tenant, operation, key and command.

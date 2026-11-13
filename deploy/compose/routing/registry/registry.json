@@ -1,0 +1,4 @@
+{
+  "revision": 1,
+  "endpoints": ["rpc-left:8083", "rpc-right:8083"]
+}

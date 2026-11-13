@@ -1,0 +1,42 @@
+syntax = "proto3";
+package atlas.inventory.v1;
+option go_package = "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/api/grpc/inventory/v1;inventoryv1";
+
+// Tenant identity comes from authenticated metadata, never a request field.
+service Inventory {
+  rpc Reserve(ReserveRequest) returns (ReservationReply);
+  rpc GetReservation(GetReservationRequest) returns (Reservation);
+}
+message ReserveRequest {
+  string idempotency_key = 1;
+  string sku = 2;
+  int64 quantity = 3;
+  int64 ttl_seconds = 4;
+  string warehouse_id = 5; // additive; empty selects the original default
+}
+message GetReservationRequest { string id = 1; }
+message Reservation {
+  string id = 1;
+  string tenant_id = 2;
+  string sku = 3;
+  int64 quantity = 4;
+  string status = 5;
+  int64 version = 6;
+  int64 expires_at_unix_ms = 7;
+  string warehouse_id = 8;
+}
+message Stock {
+  string tenant_id = 1;
+  string sku = 2;
+  int64 on_hand = 3;
+  int64 reserved = 4;
+  int64 allocated = 5;
+  int64 version = 6;
+  string warehouse_id = 7;
+}
+message ReservationReply {
+  Reservation reservation = 1;
+  Stock stock = 2;
+  bool replayed = 3;
+  uint32 protocol_revision = 4;
+}

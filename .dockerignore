@@ -2,3 +2,8 @@
 !bin/
 !bin/atlas
 !Dockerfile
+!bin/router
+!deploy/
+!deploy/compose/
+!deploy/compose/routing/
+!deploy/compose/routing/Dockerfile

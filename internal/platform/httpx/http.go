@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"mime"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -18,7 +19,20 @@ func Guard(next http.Handler, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+		budget := 10 * time.Second
+		if v := r.Header.Values("X-Request-Timeout-Ms"); len(v) > 0 {
+			if len(v) != 1 {
+				Problem(w, 400, "invalid_timeout")
+				return
+			}
+			n, err := strconv.ParseInt(v[0], 10, 64)
+			if err != nil || n < 1 || n > 10000 {
+				Problem(w, 400, "invalid_timeout")
+				return
+			}
+			budget = time.Duration(n) * time.Millisecond
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), budget)
 		defer cancel()
 		defer func() {
 			if recover() != nil {

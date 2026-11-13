@@ -1,0 +1,17 @@
+# Chapter 5: service dataflow, remote uncertainty and discovery
+
+`make verify ID=C05-04` runs the [guide](../../RPC.md), [actual process drill](../../../labs/ch05/rpc), [REST contract](../../../api/openapi/inventory/openapi.json), [generated RPC adapter](../../../internal/inventory/adapters/grpcapi) and [routing proxy](../../../internal/platform/routing) over the same Inventory reservation feature.
+
+| Source ID | Named concept | Implementation or explicit decision exercise |
+|---|---|---|
+| B05-019 | Dataflow Through Services: REST and RPC | Narrow owning-context API; REST/gRPC adapters share one feature and atomic receipt rather than exposing database internals. Independent contract definitions and mixed-client/server calls preserve deployability. |
+| B05-020 | Web services | Resource URLs, methods, bearer identity, content type, cache policy, OpenAPI JSON, served documentation, native schema checks and IDL-first generated Go gRPC clients/servers. Public/user, internal-service and external-provider API contexts are contrasted in the guide; the existing payment provider supplies the third-party-shaped boundary. |
+| B05-021 | The problems with remote procedure calls | Confirmed commit followed by lost reply; same-key recovery; distinct-key duplicate counterexample; explicit cancellation/deadlines; real backend death during SQL lock wait; bounded message bytes and exact int64 values. Variable timing is recorded without equating network calls to local pointer calls. Historical RPC technologies are a compatibility/coupling decision exercise. |
+| B05-022 | Load balancers, service discovery, and service meshes | Actual software proxy, per-RPC HTTP/2 round robin, standard health Watch, real DNS bootstrap, revisioned registry updates, complete withdrawal and surviving-peer recovery. Hardware appliances, DNS cache lifetime, registration/heartbeat registries and client/server sidecar topology have explicit role/ownership comparisons. |
+| B05-023 | Data encoding and evolution for RPC | Frozen baseline descriptor plus current generated types make four actual client/server combinations. Binary unknown-field relay differs from JSON reconstruction; new request semantics reject on old adapters. Server-first rollout and long-lived external-client version coexistence are documented choices. |
+
+Requests and replies have different evolution directions. Old request shapes should work with updated servers; old clients should tolerate new reply fields. Introducing an optional request field does not authorize a new client to assume that every old server implements its meaning. Unknown warehouse semantics are rejected before any hold is created.
+
+Cancellation is a resource-management signal, not a compensation command. A live PostgreSQL CancelRequest can interrupt a lock wait; after a process kill, server-side SQL limits are still needed to bound orphaned work. Neither signal proves that an earlier successful commit did not happen.
+
+The finite local proxy is the mesh responsibility exercise. Routing succeeds in the two-distinct-key counterexample, but the business intention is duplicated. Authentication/authorization, idempotency retention, reservation invariants and external-effect reconciliation do not become consistent merely because transport is healthy. Full mesh identity/control-plane operation, external SDKs, historical framework interoperability and larger deployment/scale audits remain in the saved baseline.

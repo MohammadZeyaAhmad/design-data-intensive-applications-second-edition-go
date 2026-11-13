@@ -12,6 +12,7 @@ import (
 	"time"
 
 	graphqlhttp "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/api/graphql"
+	inventoryspec "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/api/openapi/inventory"
 	api "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/messaging"
 	cathttp "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/catalog/adapters/httpapi"
 	catdb "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/catalog/adapters/postgres"
@@ -33,6 +34,7 @@ import (
 	paydb "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/payments/adapters/postgres"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/payments/adapters/provider"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/config"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/database"
 	inboxdb "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/messaging/postgres"
 	searchhttp "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/search/adapters/httpapi"
 	searchdb "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/search/adapters/postgres"
@@ -53,10 +55,10 @@ func main() {
 
 func run(ctx context.Context, logger *slog.Logger) error {
 	if len(os.Args) != 2 {
-		return errors.New("usage: atlas serve|worker|provider|migrate|check|search-vector-init|broker-init|broker-publisher|broker-consumer|broker-status|temporal-worker|temporal-dispatcher|temporal-check")
+		return errors.New("usage: atlas serve|rpc|worker|provider|migrate|check|search-vector-init|broker-init|broker-publisher|broker-consumer|broker-status|temporal-worker|temporal-dispatcher|temporal-check")
 	}
 	command := os.Args[1]
-	if command != "serve" && command != "worker" && command != "migrate" && command != "check" && command != "search-vector-init" && command != "provider" && command != "broker-init" && command != "broker-publisher" && command != "broker-consumer" && command != "broker-status" && command != "temporal-worker" && command != "temporal-dispatcher" && command != "temporal-check" {
+	if command != "rpc" && command != "serve" && command != "worker" && command != "migrate" && command != "check" && command != "search-vector-init" && command != "provider" && command != "broker-init" && command != "broker-publisher" && command != "broker-consumer" && command != "broker-status" && command != "temporal-worker" && command != "temporal-dispatcher" && command != "temporal-check" {
 		return errors.New("unknown atlas command")
 	}
 	if err := config.LoadLocalEnv(".env"); err != nil {
@@ -69,6 +71,18 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	poolConfig, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
 		return errors.New("invalid database configuration")
+	}
+	if command == "rpc" {
+		label := os.Getenv("ATLAS_RPC_ENDPOINT")
+		if label == "" {
+			label = "local"
+		}
+		if err = database.ConfigureRPC(poolConfig, label); err != nil {
+			return err
+		}
+	}
+	if command == "serve" {
+		database.ConfigureHTTP(poolConfig)
 	}
 	poolConfig.MaxConns = 16
 	poolConfig.MinConns = 1
@@ -96,6 +110,9 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	if command == "check" {
 		logger.Info("database and schema ready")
 		return nil
+	}
+	if command == "rpc" {
+		return serveRPC(ctx, logger, pool)
 	}
 	if command == "search-vector-init" {
 		if err = searchdb.EnsureVector(startup, pool); err != nil {
@@ -188,6 +205,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		address = "127.0.0.1:8080"
 	}
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /openapi/inventory.json", inventoryspec.ServeHTTP)
 	graphqlHTTP, err := graphqlhttp.New(graphqlhttp.Options{Orders: orderStore, Catalog: catalogStore, TenantKeys: keys, CursorKey: []byte(os.Getenv("ATLAS_GRAPHQL_CURSOR_KEY"))})
 	if err != nil {
 		return err

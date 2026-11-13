@@ -59,6 +59,7 @@ make down
 - Seven encoding formats with versioned schemas, bidirectional compatibility/relay matrices, generated Thrift RPC, bounded decoding and repeated byte/CPU measurements.
 - Avro writer/reader resolution, generated and dynamic schemas, exact registry lookup and real immutable OCF datasets that retain their historical writer schemas.
 - Actual old/new binary schema rollout, resumable bounded backfills, rollback/retirement guards and immutable versioned Catalog history replay.
+- REST/OpenAPI and generated gRPC over one Inventory feature, bounded idempotent retries, health-aware discovery/proxy routing and real timeout/cancellation/backend-kill recovery.
 - Independent Go lab showing a lost-update schedule, connected to the real database contention tests.
 
 Inventory state is authoritative in PostgreSQL tables; Ordering state is derived from its immutable event stream. A placed order currently records SKU/quantity intent. An order remains unpriced intent until checkout accepts a Catalog quote; captured payment and committed stock are required for confirmation. The local dispatcher uses PostgreSQL. Catalog price authority, checkout capture/compensation and a two-leg payment journal now run through published contracts; warehouse sourcing and a separate Fulfillment context now carry confirmed allocations through picking, packing, durable dispatch and delivery recording. Kafka transport is now executable; CDC, replicated broker operation, full telemetry and the remaining laboratories are tracked in the backlog.
@@ -67,6 +68,7 @@ Inventory state is authoritative in PostgreSQL tables; Ordering state is derived
 
 ```text
 cmd/atlas/                         API, worker, migration, and schema-check commands
+cmd/router/                        Local gRPC discovery, health and routing proxy
 cmd/guide/                         Local configuration, demos, verification, source inventory
 cmd/admin/                         Order snapshot/rebuild and audited local workflow controls
 internal/inventory/domain/         Pure aggregate and state-machine rules
@@ -191,3 +193,5 @@ For an existing earlier-increment checkout, upgrade with `docker compose --env-f
 This increment is for local development and learning. The two static tenant keys are a bootstrap authentication mechanism, not OIDC. Database connections in the Compose profile use a dedicated local network without TLS, and the scratch image has no general-purpose CA bundle. Production identity, tenant RLS, remote TLS trust, infrastructure, operational hardening, and full recovery certification remain planned. No real payment account or cloud account is required.
 
 The supplied source currently has no open-source license grant; license selection remains a repository-owner decision.
+
+The [REST/gRPC guide](docs/RPC.md) adds published service contracts over one business feature, exact command identity across transports, shared deadlines and actual endpoint failure/discovery recovery. `make verify ID=C05-04` runs its isolated native drill; `make up-routing verify-rpc-live` verifies the optional routing containers.

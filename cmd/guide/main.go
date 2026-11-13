@@ -33,20 +33,24 @@ func main() {
 }
 func run() error {
 	if len(os.Args) != 2 {
-		return errors.New("usage: guide configure|doctor|wait|demo|demo-orders|demo-checkout|verify-checkout|verify-checkout-recovery|verify-fulfillment|verify-fulfillment-recovery|verify-operations|verify-kafka|verify-temporal|verify-storage|verify-btree|verify-indexes|verify-columnstore|verify-graph|verify-graph-services|verify-semantic|verify-semantic-services|verify-models|verify-models-live|verify-graphql|verify-graphql-live|verify-encoding|verify-avro|verify-evolution|evolution-demo|verify-search|verify-search-vector|verify-search-live|verify-live|verify-lifecycle|verify-orders|verify-recovery|coverage")
+		return errors.New("usage: guide configure|doctor|wait|demo|demo-orders|demo-checkout|verify-checkout|verify-checkout-recovery|verify-fulfillment|verify-fulfillment-recovery|verify-operations|verify-kafka|verify-temporal|verify-storage|verify-btree|verify-indexes|verify-columnstore|verify-graph|verify-graph-services|verify-semantic|verify-semantic-services|verify-models|verify-models-live|verify-graphql|verify-graphql-live|verify-encoding|verify-avro|verify-evolution|evolution-demo|verify-rpc|rpc-demo|verify-rpc-live|verify-search|verify-search-vector|verify-search-live|verify-live|verify-lifecycle|verify-orders|verify-recovery|coverage")
 	}
 	command := os.Args[1]
-	if command == "evolution-demo" {
+	if command == "evolution-demo" || command == "rpc-demo" {
+		lab, output := "evolution", "../artifacts/evolution.json"
+		if command == "rpc-demo" {
+			lab, output = "rpc", "../artifacts/rpc.json"
+		}
 		if e := config.LoadLocalEnv(".env"); e != nil {
 			return e
 		}
-		cmd := exec.Command("go", "run", "./cmd/lab", "evolution", "-output", "../artifacts/evolution.json")
+		cmd := exec.Command("go", "run", "./cmd/lab", lab, "-output", output)
 		cmd.Dir = "labs"
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		return cmd.Run()
 	}
-	if command == "verify-graphql" || command == "verify-encoding" || command == "verify-avro" || command == "verify-evolution" {
+	if command == "verify-graphql" || command == "verify-encoding" || command == "verify-avro" || command == "verify-evolution" || command == "verify-rpc" {
 		cmd := exec.Command("make", command)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -156,6 +160,8 @@ func run() error {
 		return verifyFulfillment(c, false)
 	case "verify-fulfillment-recovery":
 		return verifyFulfillment(c, true)
+	case "verify-rpc-live":
+		return verifyRPCLive(c)
 	case "verify-checkout":
 		return verifyCheckout(c)
 	case "demo-orders":

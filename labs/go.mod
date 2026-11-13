@@ -10,6 +10,7 @@ require (
 	github.com/twmb/avro v1.9.1
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	go.etcd.io/bbolt v1.4.3
+	google.golang.org/grpc v1.67.1
 	google.golang.org/protobuf v1.36.6
 )
 
@@ -20,7 +21,9 @@ require (
 	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	golang.org/x/crypto v0.37.0 // indirect
+	golang.org/x/net v0.28.0 // indirect
 	golang.org/x/sync v0.13.0 // indirect
 	golang.org/x/sys v0.32.0 // indirect
 	golang.org/x/text v0.24.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240814211410-ddb44dafa142 // indirect
 )

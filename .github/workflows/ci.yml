@@ -39,6 +39,8 @@ jobs:
         run: make check-catalog-generated
       - name: Reproduce pinned Protobuf and Thrift contracts and reserved-field rejection
         run: make check-encoding-generated
+      - name: Reproduce pinned Inventory gRPC and OpenAPI contracts
+        run: make check-rpc-generated
       - name: Reproduce bounded Avro structs and embedded immutable schemas
         run: make check-avro-generated
       - name: Application and lab tests, including race detection
@@ -57,6 +59,8 @@ jobs:
         run: make avro-demo
       - name: Real historical/current Atlas rolling migration, process crash and rollback
         run: make evolution-demo
+      - name: Real REST/gRPC, discovery, lost reply and in-flight backend SIGKILL
+        run: make rpc-demo
       - name: Real pgvector profile, exact recall and search application tests
         run: make integration-search-vector
       - name: Real graph SQL and Neo4j profile, tenant fences and bounded paths
@@ -129,14 +133,21 @@ jobs:
             artifacts/evolution.json
             artifacts/evolution-run-*
             artifacts/evolution-binaries/manifest.json
+            artifacts/rpc.json
+            artifacts/rpc-run-*
+            artifacts/rpc-binaries/manifest.json
       - name: Verify application builds independently of the lab workspace
         run: |
-          GOWORK=off go build ./cmd/atlas ./cmd/guide ./cmd/admin ./cmd/schema
+          GOWORK=off go build ./cmd/atlas ./cmd/guide ./cmd/admin ./cmd/schema ./cmd/router
           cd labs && GOWORK=off go build -o ../artifacts/lab-standalone ./cmd/lab
       - name: Start disposable API and worker stack
         run: make up
       - name: Live HTTP contention and restart recovery
         run: make verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
+      - name: Local routing containers and shared REST/gRPC command receipts
+        run: |
+          make up-routing verify-rpc-live
+          make down-routing
       - name: Start Kafka transport profile
         run: make up-kafka
       - name: Kafka transport and existing business flows
@@ -164,4 +175,4 @@ jobs:
       - name: Stop disposable stack
         if: always()
         run: |
-          if test -f .env; then make down-rdf down-graph down-search-test down-search down-temporal-test down-kafka-test down-temporal down-kafka; fi
+          if test -f .env; then make down-routing down-rdf down-graph down-search-test down-search down-temporal-test down-kafka-test down-temporal down-kafka; fi

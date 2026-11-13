@@ -1,0 +1,51 @@
+# Overlay on ../compose.yaml. The shared database owns idempotency receipts;
+# the proxy owns routing only. Both listeners are local development plaintext.
+x-rpc: &rpc
+  image: ddia-go-atlas:dev
+  build:
+    context: ../..
+    dockerfile: Dockerfile
+  command: [rpc]
+  environment: &rpc-environment
+    ATLAS_DATABASE_URL: postgresql://atlas:${POSTGRES_PASSWORD:?run make configure}@postgres:5432/atlas_dev?sslmode=disable
+    ATLAS_TENANT_KEYS: ${ATLAS_TENANT_KEYS:?run make configure}
+    ATLAS_GRPC_ADDR: :8083
+    NO_PROXY: postgres,rpc-left,rpc-right,localhost,127.0.0.1
+  depends_on:
+    migrate: {condition: service_completed_successfully}
+  init: true
+  read_only: true
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  stop_grace_period: 7s
+
+services:
+  rpc-left:
+    <<: *rpc
+    environment:
+      <<: *rpc-environment
+      ATLAS_RPC_ENDPOINT: left
+  rpc-right:
+    <<: *rpc
+    environment:
+      <<: *rpc-environment
+      ATLAS_RPC_ENDPOINT: right
+  router:
+    image: ddia-go-router:dev
+    build:
+      context: ../..
+      dockerfile: deploy/compose/routing/Dockerfile
+    environment:
+      ATLAS_RPC_REGISTRY: /routing/registry.json
+      ATLAS_ROUTER_ADDR: :8084
+      NO_PROXY: rpc-left,rpc-right,localhost,127.0.0.1
+    ports: ["127.0.0.1:18084:8084"]
+    # Mount the directory so atomic file replacement is visible in the proxy.
+    # Compose resolves this relative to the FIRST file, ../compose.yaml.
+    volumes: ["./routing/registry:/routing:ro"]
+    depends_on: [rpc-left, rpc-right]
+    init: true
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    stop_grace_period: 7s

@@ -26,7 +26,15 @@ func rollback(tx pgx.Tx) {
 	_ = tx.Rollback(ctx)
 }
 
-func (s *Store) Execute(ctx context.Context, r ports.Request, fn func(context.Context, ports.Transaction) (ports.Outcome, error)) (ports.Outcome, bool, error) {
+func (s *Store) Execute(ctx context.Context, r ports.Request, fn func(context.Context, ports.Transaction) (ports.Outcome, error)) (outcome ports.Outcome, replayed bool, resultErr error) {
+	// PostgreSQL CancelRequest returns a SQL cancellation error. Preserve the
+	// caller's deadline/cancellation identity when it caused that failed query.
+	// A successful commit remains a success even if cancellation races afterward.
+	defer func() {
+		if resultErr != nil && ctx.Err() != nil {
+			resultErr = ctx.Err()
+		}
+	}()
 	tx, err := s.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return ports.Outcome{}, false, err

@@ -373,6 +373,7 @@
     "scenarios/semantic-graphs.json",
     "scenarios/graphql-reads.json",
     "scenarios/encoding-compatibility.json",
-    "scenarios/avro-resolution.json"
+    "scenarios/avro-resolution.json",
+    "scenarios/rolling-schema-evolution.json"
   ]
 }

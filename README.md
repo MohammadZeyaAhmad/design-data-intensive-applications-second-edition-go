@@ -58,6 +58,7 @@ make down
 - Authenticated GraphQL read composition over published Ordering/Catalog contracts, with batched nested reads, signed keyset pagination, query cost limits and REST parity.
 - Seven encoding formats with versioned schemas, bidirectional compatibility/relay matrices, generated Thrift RPC, bounded decoding and repeated byte/CPU measurements.
 - Avro writer/reader resolution, generated and dynamic schemas, exact registry lookup and real immutable OCF datasets that retain their historical writer schemas.
+- Actual old/new binary schema rollout, resumable bounded backfills, rollback/retirement guards and immutable versioned Catalog history replay.
 - Independent Go lab showing a lost-update schedule, connected to the real database contention tests.
 
 Inventory state is authoritative in PostgreSQL tables; Ordering state is derived from its immutable event stream. A placed order currently records SKU/quantity intent. An order remains unpriced intent until checkout accepts a Catalog quote; captured payment and committed stock are required for confirmation. The local dispatcher uses PostgreSQL. Catalog price authority, checkout capture/compensation and a two-leg payment journal now run through published contracts; warehouse sourcing and a separate Fulfillment context now carry confirmed allocations through picking, packing, durable dispatch and delivery recording. Kafka transport is now executable; CDC, replicated broker operation, full telemetry and the remaining laboratories are tracked in the backlog.
@@ -109,6 +110,8 @@ The [encoding guide](docs/ENCODING.md) compares seven concrete formats over synt
 
 The [Avro guide](docs/AVRO.md) adds explicit writer/reader resolution and real archived snapshots. It distinguishes complete schema identity from parsing fingerprints, rejects missing/ambiguous lookup, and replays old OCF files using their embedded schemas with only a current reader registered.
 
+The [rolling evolution guide](docs/EVOLUTION.md) connects a real Catalog representation change to old/new application binaries, resumable backfill, rollback windows, online validation and immutable source/archive contracts.
+
 The [graph guide](docs/GRAPHS.md) compares the same directed property multigraph across Go adjacency maps, PostgreSQL CTEs and Neo4j. An independent oracle, cycle/parallel-edge cases, property changes and malicious tenant bridges verify the query contracts.
 
 The planning inventory covers **14 chapters, 476 substantive headings, 61 glossary terms, 4,215 index occurrences, and 48 backend-pattern entries**. Every concept requires an implementation, executable experiment/model, or appropriate worked design exercise. Runtime profiles limit resources, not final scope.
@@ -139,6 +142,8 @@ make check-encoding-generated # reproduce clients and reject reserved Protobuf f
 make verify ID=C05-02    # Avro versions, defaults/unions, registry lookup and immutable replay
 make avro-demo           # report plus six retained native OCF datasets under artifacts
 make check-avro-generated # reproduce bounded generated Go structs and schema copies
+make verify ID=C05-03    # real historical/current Atlas migration, crash, rollback and contract
+make evolution-demo      # report and immutable source archive; local test DB/full Git history required
 make verify-storage     # LSM/map oracle, power-loss model, real kills and bbolt comparison
 make verify ID=C04-01    # scoped verification of the LSM package
 make verify-btree       # B+ tree structure, redo/crash tests and bbolt comparison

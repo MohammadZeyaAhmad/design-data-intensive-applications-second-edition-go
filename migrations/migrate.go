@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/fs"
 	"sort"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -52,8 +53,25 @@ func Apply(ctx context.Context, pool *pgxpool.Pool) error {
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
+		// A source-controlled marker bounds lock acquisition for online expand
+		// steps without changing the policy of historical migration files.
+		var priorLockTimeout string
+		bounded := strings.HasPrefix(string(data), "-- atlas:bounded-locks\n")
+		if bounded {
+			if err = tx.QueryRow(ctx, "SELECT current_setting('lock_timeout')").Scan(&priorLockTimeout); err != nil {
+				return err
+			}
+			if _, err = tx.Exec(ctx, "SELECT set_config('lock_timeout','250ms',true)"); err != nil {
+				return err
+			}
+		}
 		if _, err = tx.Exec(ctx, string(data)); err != nil {
 			return fmt.Errorf("apply migration %s: %w", name, err)
+		}
+		if bounded {
+			if _, err = tx.Exec(ctx, "SELECT set_config('lock_timeout',$1,true)", priorLockTimeout); err != nil {
+				return err
+			}
 		}
 		if _, err = tx.Exec(ctx, "INSERT INTO public.atlas_schema_migrations (name,checksum) VALUES ($1,$2)", name, checksum); err != nil {
 			return err

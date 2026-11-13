@@ -1,0 +1,21 @@
+# Catalog schema rollout
+
+Use `make verify ID=C05-03` for the isolated end-to-end demonstration. It needs the local PostgreSQL test binding and complete Git history for historical commit 393f703. Its databases/processes are task-owned; normal application startup only performs the non-destructive expansion. Reports and retained archives are ignored artifacts.
+
+For an actual operator-managed database, set `ATLAS_SCHEMA_DATABASE_URL` explicitly. Inspect `go run ./cmd/schema status` before proceeding. The schema operator has database-owner capabilities and is not an unauthenticated public HTTP endpoint. Supply meaningful operator/reason values for validation, rollback-window and retirement decisions.
+
+Prepare with `schema prepare`. Concurrent index creation runs outside a transaction and can leave an invalid index after cancellation; preparation recognizes and repairs the owned expected definition. An unexpected object under the reserved name fails for review. Avoid substituting an ordinary blocking index build or silently accepting an invalid IF NOT EXISTS result.
+
+Start `schema run -id <stable-run-id> -limit 32 -interval 100ms -deadline 5m`. Keep the same ID/limit/interval on a restart; committed receipts replay before the run continues. A single `schema batch` requires an explicit unique batch ID and binds its parameters. A timeout may have committed: resolve its receipt rather than inventing a new outcome. Inspect the completion field/status; reaching a deadline or batch cap does not mean all tuples are filled. Never advance a cursor past skipped locked rows.
+
+Backfill timeouts roll back partial work. If no rows are available but pending data remains, find the active transaction and let it finish; do not mark completion manually. Existing ordinary writers fill both representations through the bridge. Backfill does not change business revisions/history; a mismatch there is a failed rollout invariant. Operator counts may be more expensive than each batch's indexed EXISTS probe.
+
+Validate only after pending tuples reach zero. The operator creates NOT VALID metadata in one transaction and validates in another. On lock acquisition or scan timeout, inspect/retry; retain the bridge and old column. Schema migration file checksums remain immutable, and recorded rollout state describes separate administrative work.
+
+Open a rollback window with `schema window -window 168h -operator ... -reason ...`. The deadline can be extended but never shortened. Maintain declared old-reader leases during deployment. Drain old binaries, wait for their leases to expire, then retire each with `schema retire-reader -id ...`. Active tagged sessions prevent retirement; expiry alone does not authorize contraction. Inventory includes exports, replicas, batch readers and rollback installations in a real deployment, not just the API.
+
+When the deadline has actually elapsed and old readers are retired, use `schema retire-rollback -operator ... -reason ...`, then `schema contract -operator ... -reason ...`. Contraction is a separate explicit irreversible format-retirement decision. A lock timeout rolls back its DDL/state. If the acknowledgment is uncertain, status distinguishes a committed contraction; do not attempt to revive an old binary. A retired legacy capability cannot renew. Production-specific roles and deployment fencing remain necessary to exclude arbitrary unregistered clients.
+
+Use `schema export -tenant ... -brand ... -file ...` before retiring data formats and keep the returned complete-file digest. The file retains original JSONB body/metadata images, timestamps and independent writer definitions. `schema replay -file ...` is offline and rejects unsupported schemas/corruption without returning a prefix. An existing different file cannot be overwritten. This bounded stream archive supplements a backup strategy; it does not replace database backup/restore or object-store retention governance.
+
+The test harness installs a pause trigger only in its owned database to kill an uncommitted worker, verifies receipt/data rollback, and removes that trigger. Those failure hooks are not installed by application migrations. It also discards a committed response and resumes with the same identity. Only its own child processes/database are stopped/removed; retained report/archive files remain for inspection.

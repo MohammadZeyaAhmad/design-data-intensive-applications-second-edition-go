@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"Catalog brand history v2","type":"object","required":["id","display_name","version"],"properties":{"id":{"type":"string"},"display_name":{"type":"string","minLength":1,"maxLength":200},"version":{"type":"integer","minimum":1}},"additionalProperties":false}

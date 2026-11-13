@@ -9,10 +9,52 @@ import (
 )
 
 type CatalogBrand struct {
-	TenantID string
-	ID       string
-	Name     string
-	Version  int64
+	TenantID    string
+	ID          string
+	Name        string
+	Version     int64
+	DisplayName pgtype.Text
+}
+
+type CatalogBrandBackfillReceipt struct {
+	BatchID        string
+	RowsBackfilled int32
+	Pending        bool
+	BatchLimit     int32
+	MinIntervalMs  int64
+	CommittedAt    pgtype.Timestamptz
+}
+
+type CatalogBrandName struct {
+	TenantID    string
+	ID          string
+	DisplayName string
+	Version     int64
+}
+
+type CatalogBrandRollout struct {
+	ID                int32
+	Phase             string
+	Batches           int64
+	RowsBackfilled    int64
+	NextBatchAt       pgtype.Timestamptz
+	RollbackUntil     pgtype.Timestamptz
+	RollbackRetiredAt pgtype.Timestamptz
+}
+
+type CatalogBrandRolloutAudit struct {
+	Sequence   int64
+	Action     string
+	Operator   string
+	Reason     string
+	RecordedAt pgtype.Timestamptz
+}
+
+type CatalogBrandSchemaReader struct {
+	ID         string
+	Capability int32
+	LeaseUntil pgtype.Timestamptz
+	RetiredAt  pgtype.Timestamptz
 }
 
 type CatalogCommandResult struct {
@@ -24,13 +66,14 @@ type CatalogCommandResult struct {
 }
 
 type CatalogContentHistory struct {
-	TenantID   string
-	Kind       string
-	ID         string
-	Version    int64
-	Body       []byte
-	Metadata   []byte
-	RecordedAt pgtype.Timestamptz
+	TenantID      string
+	Kind          string
+	ID            string
+	Version       int64
+	Body          []byte
+	Metadata      []byte
+	RecordedAt    pgtype.Timestamptz
+	SchemaVersion int32
 }
 
 type CatalogPrice struct {

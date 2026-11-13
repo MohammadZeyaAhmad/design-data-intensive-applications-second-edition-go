@@ -33,7 +33,19 @@ func contentHistory(ctx context.Context, tx pgx.Tx, tenant, kind, id string, ver
 	if e != nil {
 		return e
 	}
-	_, e = tx.Exec(ctx, `INSERT INTO catalog.content_history(tenant_id,kind,id,version,body,metadata) VALUES($1,$2,$3,$4,$5,$6)`, tenant, kind, id, version, body, meta)
+	schemaVersion := 1
+	if kind == "brand" {
+		brand, ok := value.(domain.Brand)
+		if !ok {
+			return domain.ErrInvalid
+		}
+		body, e = json.Marshal(api.BrandSnapshot{ID: brand.ID, DisplayName: brand.Name, Version: brand.Version})
+		if e != nil {
+			return e
+		}
+		schemaVersion = 2
+	}
+	_, e = tx.Exec(ctx, `INSERT INTO catalog.content_history(tenant_id,kind,id,version,body,metadata,schema_version) VALUES($1,$2,$3,$4,$5,$6,$7)`, tenant, kind, id, version, body, meta, schemaVersion)
 	return e
 }
 func (s *Store) PublishBrand(ctx context.Context, r commands.Request, b domain.Brand) (domain.Brand, bool, error) {
@@ -42,7 +54,7 @@ func (s *Store) PublishBrand(ctx context.Context, r commands.Request, b domain.B
 	}
 	return cmdtx.Execute(ctx, s.Pool, "catalog", r, func(tx pgx.Tx) (domain.Brand, error) {
 		var v int64
-		e := tx.QueryRow(ctx, `INSERT INTO catalog.brands(tenant_id,id,name,version) VALUES($1,$2,$3,1) ON CONFLICT(tenant_id,id) DO UPDATE SET name=excluded.name,version=catalog.brands.version+1 WHERE catalog.brands.version=$4 RETURNING version`, r.Tenant, b.ID, b.Name, b.Version).Scan(&v)
+		e := tx.QueryRow(ctx, `INSERT INTO catalog.brands(tenant_id,id,display_name,version) VALUES($1,$2,$3,1) ON CONFLICT(tenant_id,id) DO UPDATE SET display_name=excluded.display_name,version=catalog.brands.version+1 WHERE catalog.brands.version=$4 RETURNING version`, r.Tenant, b.ID, b.Name, b.Version).Scan(&v)
 		// A new brand may be created only with expected version zero.
 		if errors.Is(e, pgx.ErrNoRows) {
 			return domain.Brand{}, api.ErrConflict
@@ -59,7 +71,7 @@ func (s *Store) PublishBrand(ctx context.Context, r commands.Request, b domain.B
 }
 func (s *Store) Brand(ctx context.Context, tenant, id string) (domain.Brand, error) {
 	var b domain.Brand
-	e := s.Pool.QueryRow(ctx, `SELECT id,name,version FROM catalog.brands WHERE tenant_id=$1 AND id=$2`, tenant, id).Scan(&b.ID, &b.Name, &b.Version)
+	e := s.Pool.QueryRow(ctx, `SELECT id,display_name,version FROM catalog.brand_names WHERE tenant_id=$1 AND id=$2`, tenant, id).Scan(&b.ID, &b.Name, &b.Version)
 	if errors.Is(e, pgx.ErrNoRows) {
 		e = api.ErrNotFound
 	}
@@ -80,7 +92,7 @@ func (s *Store) Describe(ctx context.Context, r commands.Request, d domain.Detai
 		} else if e != nil {
 			return domain.Details{}, e
 		}
-		if e := tx.QueryRow(ctx, `SELECT name FROM catalog.brands WHERE tenant_id=$1 AND id=$2 FOR SHARE`, r.Tenant, d.BrandID).Scan(&d.BrandName); errors.Is(e, pgx.ErrNoRows) {
+		if e := tx.QueryRow(ctx, `SELECT display_name FROM catalog.brand_names WHERE tenant_id=$1 AND id=$2 FOR SHARE`, r.Tenant, d.BrandID).Scan(&d.BrandName); errors.Is(e, pgx.ErrNoRows) {
 			return domain.Details{}, api.ErrNotFound
 		} else if e != nil {
 			return domain.Details{}, e

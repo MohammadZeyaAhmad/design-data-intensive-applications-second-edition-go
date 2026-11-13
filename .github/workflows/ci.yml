@@ -24,6 +24,8 @@ jobs:
       ATLAS_TEST_DATABASE_URL: postgresql://atlas:atlas-ci-disposable-only@127.0.0.1:5432/atlas_test?sslmode=disable
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version: '1.27.3'
@@ -53,6 +55,8 @@ jobs:
         run: make encoding-demo encoding-bench
       - name: Avro schema resolution, fingerprint lookup and immutable OCF replay
         run: make avro-demo
+      - name: Real historical/current Atlas rolling migration, process crash and rollback
+        run: make evolution-demo
       - name: Real pgvector profile, exact recall and search application tests
         run: make integration-search-vector
       - name: Real graph SQL and Neo4j profile, tenant fences and bounded paths
@@ -92,6 +96,10 @@ jobs:
           cd labs
           go test -run '^$' -fuzz '^FuzzBoundedAvro$' -fuzztime=5s -parallel=2 ./ch05/avro
           go test -run '^$' -fuzz '^FuzzBoundedContainer$' -fuzztime=5s -fuzzminimizetime=100ms -parallel=2 ./ch05/avro
+      - name: Bounded versioned Catalog history upcasting
+        run: |
+          go test -run '^$' -fuzz '^FuzzBrandHistory$' -fuzztime=5s -parallel=2 ./contracts/catalog
+          go test -run '^$' -fuzz '^FuzzBrandArchive$' -fuzztime=5s -fuzzminimizetime=100ms -parallel=2 ./contracts/catalog
       - name: Retain storage comparison report
         uses: actions/upload-artifact@v4
         with:
@@ -118,9 +126,12 @@ jobs:
             artifacts/encoding-go-benchmark.txt
             artifacts/avro.json
             artifacts/avro-archives-*
+            artifacts/evolution.json
+            artifacts/evolution-run-*
+            artifacts/evolution-binaries/manifest.json
       - name: Verify application builds independently of the lab workspace
         run: |
-          GOWORK=off go build ./cmd/atlas ./cmd/guide ./cmd/admin
+          GOWORK=off go build ./cmd/atlas ./cmd/guide ./cmd/admin ./cmd/schema
           cd labs && GOWORK=off go build -o ../artifacts/lab-standalone ./cmd/lab
       - name: Start disposable API and worker stack
         run: make up

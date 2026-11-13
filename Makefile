@@ -38,7 +38,7 @@ verify-orders:
 verify-recovery:
 	go run ./cmd/guide verify-recovery
 ifeq ($(strip $(ID)),)
-verify: test integration coverage-check lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic graphql-demo graphql-postgres check-encoding-generated encoding-demo check-avro-generated avro-demo storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
+verify: test integration coverage-check lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic graphql-demo graphql-postgres check-encoding-generated encoding-demo check-avro-generated avro-demo evolution-demo storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
 else ifeq ($(ID),C03-01)
 verify: verify-models
 else ifeq ($(ID),C03-03)
@@ -61,9 +61,11 @@ else ifeq ($(ID),C05-01)
 verify: verify-encoding
 else ifeq ($(ID),C05-02)
 verify: verify-avro
+else ifeq ($(ID),C05-03)
+verify: verify-evolution
 else
 verify:
-	@echo 'Scoped verification supports ID=C03-01, C03-03 through C03-05, C04-01 through C04-05, C05-01 and C05-02; other plan IDs remain future interfaces.' >&2
+	@echo 'Scoped verification supports ID=C03-01, C03-03 through C03-05, C04-01 through C04-05, C05-01 through C05-03; other plan IDs remain future interfaces.' >&2
 	@exit 2
 endif
 demo:
@@ -254,3 +256,13 @@ generate-avro:
 check-avro-generated:
 	bash tools/avro-generated.sh check
 verify-avro: coverage-check check-avro-generated avro-test avro-demo
+
+.PHONY: evolution-binaries evolution-test evolution-demo verify-evolution
+evolution-binaries:
+	bash tools/evolution-binaries.sh
+evolution-test:
+	go test -race -count=1 ./contracts/catalog ./internal/catalog/... ./tests/architecture
+	go test -race -tags=integration -count=1 -run '^TestCatalogEvolution' ./tests/integration
+evolution-demo: evolution-binaries
+	go run ./cmd/guide evolution-demo
+verify-evolution: coverage-check check-catalog-generated evolution-test evolution-demo

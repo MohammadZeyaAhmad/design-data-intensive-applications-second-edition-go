@@ -1,7 +1,7 @@
 version: "2"
 sql:
   - engine: postgresql
-    schema: [migrations/catalog/001_catalog.sql, migrations/catalog/002_metadata.sql, migrations/catalog/003_product_details.sql]
+    schema: [migrations/catalog/001_catalog.sql, migrations/catalog/002_metadata.sql, migrations/catalog/003_product_details.sql, migrations/catalog/004_brand_display.sql]
     queries: internal/catalog/adapters/postgres/details.sql
     gen:
       go:

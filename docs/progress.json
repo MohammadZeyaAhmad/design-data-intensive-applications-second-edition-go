@@ -152,7 +152,7 @@
     },
     {
       "id": "C06-03",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "id": "C06-04",
@@ -380,6 +380,7 @@
     "scenarios/cache-resilience.json",
     "scenarios/observability-delivery.json",
     "scenarios/single-leader-replication.json",
-    "scenarios/object-backed-storage.json"
+    "scenarios/object-backed-storage.json",
+    "scenarios/replication-log-formats.json"
   ]
 }

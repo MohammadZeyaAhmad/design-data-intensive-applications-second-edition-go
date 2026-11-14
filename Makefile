@@ -43,13 +43,15 @@ verify-orders:
 verify-recovery:
 	go run ./cmd/guide verify-recovery
 ifeq ($(strip $(ID)),)
-verify: test integration coverage-check object-storage-compare replication-model replication-demo resilience-test resilience-postgres cache-demo integration-redis lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic graphql-demo graphql-postgres check-encoding-generated encoding-demo check-avro-generated avro-demo evolution-demo check-rpc-generated rpc-demo actors-postgres actors-demo integration-actors storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
+verify: test integration coverage-check log-formats-demo object-storage-compare replication-model replication-demo resilience-test resilience-postgres cache-demo integration-redis lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic graphql-demo graphql-postgres check-encoding-generated encoding-demo check-avro-generated avro-demo evolution-demo check-rpc-generated rpc-demo actors-postgres actors-demo integration-actors storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
 else ifeq ($(ID),OPS-01)
 verify: verify-operations-baseline
 else ifeq ($(ID),C06-01)
 verify: verify-replication
 else ifeq ($(ID),C06-02)
 verify: verify-object-storage
+else ifeq ($(ID),C06-03)
+verify: verify-log-formats
 else ifeq ($(ID),APP-09)
 verify: verify-resilience
 else ifeq ($(ID),C03-01)
@@ -82,7 +84,7 @@ else ifeq ($(ID),C05-06)
 verify: verify-actors
 else
 verify:
-	@echo 'Scoped verification supports ID=OPS-01, APP-09, C03-01, C03-03 through C03-05, C04-01 through C04-05, C05-01 through C05-04, C05-06, C06-01, C06-02; other plan IDs remain future interfaces.' >&2
+	@echo 'Scoped verification supports ID=OPS-01, APP-09, C03-01, C03-03 through C03-05, C04-01 through C04-05, C05-01 through C05-04, C05-06, C06-01, C06-02, C06-03; other plan IDs remain future interfaces.' >&2
 	@exit 2
 endif
 demo:
@@ -362,6 +364,16 @@ object-storage-s3-cloud: object-storage-binaries
 object-storage-compare: object-storage-demo integration-object-storage
 	python3 tools/object-storage-compare.py
 verify-object-storage: coverage-check object-storage-test object-storage-compare
+
+.PHONY: log-formats-binaries log-formats-test log-formats-demo verify-log-formats
+log-formats-binaries:
+	bash tools/log-formats-binaries.sh
+log-formats-test:
+	cd labs && go test -race -count=1 ./ch06/log-formats ./internal/pgprocess ./cmd/log-formats-lab
+	cd labs && go vet ./ch06/log-formats ./internal/pgprocess ./cmd/log-formats-lab
+log-formats-demo: log-formats-binaries
+	bash tools/log-formats-demo.sh
+verify-log-formats: coverage-check log-formats-test log-formats-demo
 
 .PHONY: generate-actors-contracts check-actors-contracts
 generate-actors-contracts:

@@ -8,6 +8,7 @@ import (
 	orders "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/ordering"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/checkout/features/advance"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/checkout/ports"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/telemetry"
 )
 
 type Worker struct {
@@ -21,6 +22,8 @@ func (w Worker) ProcessOne(ctx context.Context) (bool, error) {
 	if err != nil || !found {
 		return found, err
 	}
+	ctx, finish := telemetry.Consumer(ctx, j.Metadata.TraceParent, "checkout.step", string(j.State.Stage))
+	defer func() { finish(err) }()
 	ctx, err = envelope.Worker(ctx, j.Metadata, "checkout", j.Request.ID)
 	if err != nil {
 		return true, err
@@ -31,7 +34,8 @@ func (w Worker) ProcessOne(ctx context.Context) (bool, error) {
 		next = j.State
 	}
 	if saveErr := w.Store.Save(ctx, j, next, retry); saveErr != nil {
-		return true, saveErr
+		err = saveErr
+		return true, err
 	}
 	return true, err
 }

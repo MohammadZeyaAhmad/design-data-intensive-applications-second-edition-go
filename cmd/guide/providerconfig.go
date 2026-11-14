@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 )
@@ -58,6 +59,41 @@ func providerConfig() error {
 			return err
 		}
 		text += "ATLAS_GRAPHQL_CURSOR_KEY=" + key + "\n"
+	}
+
+	if !strings.Contains("\n"+text, "\nATLAS_GRAFANA_PASSWORD=") {
+		value, err := secret()
+		if err != nil {
+			return err
+		}
+		text += "ATLAS_GRAFANA_PASSWORD=" + value + "\n"
+	}
+	if !strings.Contains("\n"+text, "\nATLAS_TELEMETRY_TOKEN=") {
+		value, err := secret()
+		if err != nil {
+			return err
+		}
+		text += "ATLAS_TELEMETRY_TOKEN=" + value + "\n"
+	}
+	if !strings.Contains("\n"+text, "\nATLAS_LOCAL_UID=") {
+		text += fmt.Sprintf("ATLAS_LOCAL_UID=%d\nATLAS_LOCAL_GID=%d\n", os.Getuid(), os.Getgid())
+	}
+	token := os.Getenv("ATLAS_TELEMETRY_TOKEN")
+	if token == "" {
+		for _, line := range strings.Split(text, "\n") {
+			if value, ok := strings.CutPrefix(line, "ATLAS_TELEMETRY_TOKEN="); ok {
+				token = value
+			}
+		}
+	}
+	if len(token) < 32 {
+		return errors.New("invalid local telemetry reader credential")
+	}
+	if err = os.WriteFile(".env.telemetry-token.next", []byte(token), 0600); err != nil {
+		return err
+	}
+	if err = os.Rename(".env.telemetry-token.next", ".env.telemetry-token"); err != nil {
+		return err
 	}
 	if text == string(b) {
 		return nil

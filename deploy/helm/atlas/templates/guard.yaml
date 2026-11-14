@@ -1,0 +1,10 @@
+{{- if not (regexMatch "^sha256:[a-f0-9]{64}$" .Values.image.digest) -}}
+{{- fail "image.digest must be an immutable sha256 digest" -}}
+{{- end -}}
+{{- $db := list .Values.credentials.api .Values.credentials.worker .Values.credentials.provider .Values.credentials.migration -}}
+{{- if ne (len (uniq $db)) 4 -}}
+{{- fail "API, worker, provider and migration database credentials must have distinct secret references" -}}
+{{- end -}}
+{{- if and .Values.telemetry.durable (not (and .Values.telemetry.enabled .Values.rollout.traceReadersReady .Values.telemetry.endpoint)) -}}
+{{- fail "durable trace production requires telemetry, an endpoint and completed reader rollout" -}}
+{{- end -}}

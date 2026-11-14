@@ -9,3 +9,8 @@ coverage.out
 *.epub
 *.pdf
 .DS_Store
+
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan

@@ -23,10 +23,10 @@ jobs:
     env:
       ATLAS_TEST_DATABASE_URL: postgresql://atlas:atlas-ci-disposable-only@127.0.0.1:5432/atlas_test?sslmode=disable
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: '1.27.3'
           cache: true
@@ -51,6 +51,14 @@ jobs:
         run: make coverage-check lab models-demo graph-demo semantic-demo storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans storage-bench
       - name: Catalog cache authority, overload drain, bounded provider retries and real Redis fences
         run: make resilience-postgres cache-demo integration-redis
+      - name: Native checkout traces, private metrics, actual Prometheus alerts and SLI rules
+        run: make observability-tools observability-postgres observability-prometheus observability-rules
+      - name: Checked release binaries, build-info SBOMs and immutable deployment references
+        run: |
+          ATLAS_RELEASE_REQUIRE_CLEAN=true make release-artifacts
+          make deployment-reference-check
+          ${ATLAS_OPERATIONS_TOOLS:-/tmp/atlas-operations-tools}/terraform -chdir=deploy/terraform/aws-reference init -backend=false -input=false -lockfile=readonly
+          ${ATLAS_OPERATIONS_TOOLS:-/tmp/atlas-operations-tools}/terraform -chdir=deploy/terraform/aws-reference validate
       - name: Real catalog model queries, plans and ORM comparison
         run: make models-postgres
       - name: GraphQL composition, native batching and REST parity
@@ -111,10 +119,12 @@ jobs:
           go test -run '^$' -fuzz '^FuzzBrandHistory$' -fuzztime=5s -parallel=2 ./contracts/catalog
           go test -run '^$' -fuzz '^FuzzBrandArchive$' -fuzztime=5s -fuzzminimizetime=100ms -parallel=2 ./contracts/catalog
       - name: Retain storage comparison report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: storage-comparison
           path: |
+            artifacts/operations/*.json
+            artifacts/release/atlas-*.tar.gz
             artifacts/resilience-postgres.json
             artifacts/resilience-redis.json
             artifacts/cache-comparison.json
@@ -151,7 +161,7 @@ jobs:
             artifacts/actors-binaries/manifest.json
       - name: Verify application builds independently of the lab workspace
         run: |
-          GOWORK=off go build ./cmd/atlas ./cmd/guide ./cmd/admin ./cmd/schema ./cmd/router ./cmd/loadgen
+          GOWORK=off go build ./cmd/atlas ./cmd/guide ./cmd/admin ./cmd/schema ./cmd/router ./cmd/loadgen ./cmd/releasecheck
           cd labs && GOWORK=off go build -o ../artifacts/lab-standalone ./cmd/lab
       - name: Start disposable API and worker stack
         run: make up
@@ -162,12 +172,21 @@ jobs:
           make up-resilience verify-resilience-live
           make restore-default-cache
       - name: Retain cache outage and bounded load observations
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: resilience-recovery
           path: |
             artifacts/resilience-live.json
             artifacts/resilience-load.json
+      - name: Actual private Prometheus, Grafana and Jaeger observation profile
+        run: |
+          make up-observe verify-observe-live
+          make restore-default-observe
+      - name: Retain observation profile evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: observation-profile
+          path: artifacts/operations-live.json
       - name: Local routing containers and shared REST/gRPC command receipts
         run: |
           make up-routing verify-rpc-live
@@ -183,7 +202,7 @@ jobs:
       - name: Real Kafka actor redelivery, competing consumers, fan-out and request/reply
         run: make integration-actors
       - name: Retain actor broker recovery report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: actor-broker-recovery
           path: |
@@ -209,4 +228,4 @@ jobs:
       - name: Stop disposable stack
         if: always()
         run: |
-          if test -f .env; then make down-redis-test down-resilience down-actors down-routing down-rdf down-graph down-search-test down-search down-temporal-test down-kafka-test down-temporal down-kafka; fi
+          if test -f .env; then make down-observe down-redis-test down-resilience down-actors down-routing down-rdf down-graph down-search-test down-search down-temporal-test down-kafka-test down-temporal down-kafka; fi

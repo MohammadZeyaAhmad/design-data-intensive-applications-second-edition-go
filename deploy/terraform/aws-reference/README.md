@@ -1,0 +1,9 @@
+# AWS reference boundary
+
+This un-applied module creates an immutable ECR repository with scan-on-push, four distinct empty Secrets Manager containers, and a retained log group. It creates no secret versions, cluster, database or access grants. No credentials belong in Terraform variables, plans, state examples, chart values or the repository.
+
+The full reference deployment uses an existing/private EKS cluster, managed PostgreSQL, a private OTLP collector and a Prometheus/Grafana service. Supply the migration job's owner credential and separate API/worker/provider runtime credentials through a configured secrets controller or a reviewed out-of-band process. The chart expects four distinct Kubernetes Secret names with a `url` key, plus independent tenant, provider, cursor and metrics-reader secret references. Different secret names alone do not establish database privileges; defining and verifying those grants remains OPS-03 work.
+
+Before a real deployment, review account/region, database engine availability, private subnets and security groups, identity bindings, per-service SQL grants, encryption keys, secret rotation, backups, restore evidence, network policy and costs. The retained book backlog tracks these deliverables. `terraform validate` is a schema check, not an account-specific plan or proof of a successful deployment. No cloud resource is provisioned by `make verify ID=OPS-01`.
+
+Promote a tested image by its registry manifest digest, retain the matching binary/SBOM/checksum/provenance bundle, run the chart's migration job, and let the zero-unavailable rolling deployment admit only ready replicas. Keep durable trace production off until all old strict readers are retired. Schema contraction and rollback after new metadata exists require the separate compatibility/retention gates in the rollout guide.

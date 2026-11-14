@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-13",
+  "updated": "2026-11-14",
   "scope": "Full 88-package baseline; scenario verification does not close a whole package.",
   "packages": [
     {
@@ -40,7 +40,7 @@
     },
     {
       "id": "OPS-01",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "id": "OPS-02",
@@ -377,6 +377,7 @@
     "scenarios/rolling-schema-evolution.json",
     "scenarios/rpc-transport-failures.json",
     "scenarios/actor-messaging.json",
-    "scenarios/cache-resilience.json"
+    "scenarios/cache-resilience.json",
+    "scenarios/observability-delivery.json"
   ]
 }

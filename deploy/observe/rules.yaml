@@ -1,0 +1,51 @@
+groups:
+  - name: atlas-slis
+    interval: 1s
+    rules:
+      - record: atlas:http_requests:rate5m
+        expr: sum by (job) (rate(atlas_http_observed_requests_total{route!~"/healthz|/readyz|unmatched"}[5m]))
+      - record: atlas:http_unavailable:rate5m
+        expr: sum by (job) (rate(atlas_http_unavailable_total{route!~"/healthz|/readyz|unmatched"}[5m]))
+      - record: atlas:http_availability:ratio5m
+        expr: 1 - atlas:http_unavailable:rate5m / atlas:http_requests:rate5m
+      - record: atlas:http_error_budget:burn5m
+        expr: (1 - atlas:http_availability:ratio5m) / 0.001
+      - record: atlas:http_latency_good:ratio5m
+        expr: sum by (job) (rate(atlas_http_request_duration_seconds_bucket{le="0.25",route!~"/healthz|/readyz|unmatched"}[5m])) / sum by (job) (rate(atlas_http_request_duration_seconds_count{route!~"/healthz|/readyz|unmatched"}[5m]))
+      - record: atlas:http_latency:p95_5m
+        expr: histogram_quantile(0.95, sum by (job,le) (rate(atlas_http_request_duration_seconds_bucket{route!~"/healthz|/readyz|unmatched"}[5m])))
+  - name: atlas-development-alerts
+    interval: 1s
+    rules:
+      - alert: AtlasConsumerLag
+        expr: atlas_consumer_oldest_pending_seconds > 1 and atlas_consumer_pending > 0 and atlas_audit_up == 1
+        for: 2s
+        labels: {severity: warning}
+        annotations:
+          summary: "Inventory delivery is behind its source"
+          runbook: "docs/runbooks/observability-and-release.md"
+      - alert: AtlasIntegrityFailure
+        expr: atlas_integrity_mismatches > 0 and atlas_audit_up == 1
+        for: 1s
+        labels: {severity: critical}
+        annotations:
+          summary: "Equal-version Inventory values disagree"
+          runbook: "docs/runbooks/observability-and-release.md"
+      - alert: AtlasAuditUnavailable
+        expr: (atlas_audit_up == 0 or time() - atlas_audit_last_success_timestamp_seconds > 5) and atlas_audit_enabled == 1
+        for: 2s
+        labels: {severity: warning}
+        annotations:
+          summary: "Freshness and integrity evidence is unavailable"
+      - alert: AtlasTelemetryTargetUnavailable
+        expr: up{job=~"atlas-api|atlas-worker|atlas-provider"} == 0
+        for: 2s
+        labels: {severity: warning}
+        annotations:
+          summary: "A configured private telemetry target cannot be scraped"
+      - alert: AtlasFastErrorBudgetBurn
+        expr: atlas:http_error_budget:burn5m > 14.4 and atlas:http_requests:rate5m > 0
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: "Known-route server availability is consuming its example budget"

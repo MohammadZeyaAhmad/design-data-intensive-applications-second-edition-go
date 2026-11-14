@@ -1,0 +1,23 @@
+image:
+  repository: ghcr.io/example/atlas
+  digest: ''
+api:
+  replicas: 2
+credentials:
+  api: atlas-api-db
+  worker: atlas-worker-db
+  provider: atlas-provider-db
+  migration: atlas-migration-db
+  tenantKeys: atlas-api-auth
+  providerToken: atlas-provider-auth
+  cursorKey: atlas-cursor-auth
+  telemetry: atlas-telemetry-auth
+telemetry:
+  enabled: false
+  durable: false
+  endpoint: ''
+rollout:
+  traceReadersReady: false
+resources:
+  requests: {cpu: 100m, memory: 128Mi}
+  limits: {cpu: '1', memory: 256Mi}

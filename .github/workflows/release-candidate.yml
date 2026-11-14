@@ -1,0 +1,52 @@
+name: Atlas candidate artifacts
+on:
+  workflow_dispatch:
+    inputs:
+      verified_run_id:
+        description: Successful Go Atlas reference run for this exact SHA
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.27.3'
+          cache: true
+          cache-dependency-path: go.sum
+      - name: Require successful verification of the exact source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERIFIED_RUN_ID: ${{ inputs.verified_run_id }}
+        run: |
+          case "$VERIFIED_RUN_ID" in ''|*[!0-9]*) exit 2;; esac
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$VERIFIED_RUN_ID" > "$RUNNER_TEMP/atlas-tested-run.json"
+          python3 - <<'PY'
+          import json,os
+          with open(os.path.join(os.environ['RUNNER_TEMP'],'atlas-tested-run.json')) as source:
+            run=json.load(source)
+          assert run['head_sha']==os.environ['GITHUB_SHA']
+          assert run['conclusion']=='success' and run['status']=='completed'
+          assert run['path']=='.github/workflows/ci.yml'
+          assert run['head_repository']['full_name']==os.environ['GITHUB_REPOSITORY']
+          PY
+      - name: Build and check static binaries, SBOM schemas and checksums
+        run: ATLAS_RELEASE_REQUIRE_CLEAN=true make release-artifacts
+      - name: Attest candidate archive digests
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: artifacts/release/atlas-*.tar.gz
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: atlas-candidate-${{ github.sha }}
+          path: artifacts/release/atlas-*.tar.gz

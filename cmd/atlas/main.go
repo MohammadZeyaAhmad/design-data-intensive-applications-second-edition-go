@@ -37,6 +37,7 @@ import (
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/database"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/httpx"
 	inboxdb "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/messaging/postgres"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/telemetry"
 	searchhttp "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/search/adapters/httpapi"
 	searchdb "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/search/adapters/postgres"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/migrations"
@@ -45,7 +46,7 @@ import (
 )
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	logger := telemetry.NewLogger(os.Stdout, "atlas")
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	if err := run(ctx, logger); err != nil && !errors.Is(err, context.Canceled) {
@@ -64,6 +65,30 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	}
 	if err := config.LoadLocalEnv(".env"); err != nil {
 		return err
+	}
+	version := buildRevision()
+	service := command
+	if command == "serve" {
+		service = "api"
+	}
+	options, err := telemetry.FromEnv(service, version)
+	if err != nil {
+		return err
+	}
+	observer, err := telemetry.New(options)
+	if err != nil {
+		return err
+	}
+	ctx = observer.Context(telemetry.WithLogger(ctx, logger))
+	defer func() {
+		shutdown, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = observer.Shutdown(shutdown)
+	}()
+	if command != "migrate" && command != "check" {
+		if err = observer.Listen(); err != nil {
+			return err
+		}
 	}
 	dsn := os.Getenv("ATLAS_DATABASE_URL")
 	if dsn == "" {
@@ -84,6 +109,9 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	}
 	if command == "serve" {
 		database.ConfigureHTTP(poolConfig)
+	}
+	if options.Enabled {
+		poolConfig.ConnConfig.Tracer = telemetry.DBTracer{Runtime: observer}
 	}
 	poolConfig.MaxConns = 16
 	poolConfig.MinConns = 1
@@ -144,6 +172,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	observer.RegisterBulkhead("payment_provider", providerClient.Policy.Bulkhead.Stats)
 	catalogStore := &catdb.Store{Pool: pool}
 	paymentStore := &paydb.Service{Pool: pool, Provider: providerClient}
 	checkoutStore := &checkdb.Store{Pool: pool}
@@ -173,6 +202,14 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	if transport == "kafka" {
 		checkoutWorker.Orders = nil
 		fulfillmentWorker.Orders = nil
+	}
+	if command == "serve" {
+		observer.StartAudit(ctx, pool)
+		defer func() {
+			shutdown, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			_ = observer.StopBackground(shutdown)
+		}()
 	}
 	if command == "worker" {
 		logger.Info("Atlas inventory, ordering, checkout and fulfillment workers started")
@@ -248,7 +285,13 @@ func serveHTTP(ctx context.Context, logger *slog.Logger, address string, handler
 	if err != nil {
 		return err
 	}
-	server := &http.Server{Addr: address, Handler: httpx.Guard(admission.Handler(handler), logger), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
+	wrapped := httpx.Guard(admission.Handler(handler), logger)
+	if observer := telemetry.From(ctx); observer != nil {
+		observer.RegisterBulkhead("http_read", admission.Reads.Stats)
+		observer.RegisterBulkhead("http_write", admission.Writes.Stats)
+		wrapped = observer.HTTP(wrapped)
+	}
+	server := &http.Server{Addr: address, Handler: wrapped, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
 	done := make(chan error, 1)
 	go func() { done <- server.ListenAndServe() }()
 	logger.Info("Atlas API started", "address", address, "authentication", "development tenant keys")

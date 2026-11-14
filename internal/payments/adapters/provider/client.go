@@ -14,6 +14,7 @@ import (
 
 	api "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/contracts/payments"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/resilience"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/telemetry"
 )
 
 type Client struct {
@@ -54,7 +55,7 @@ func NewClient(base, token string) (*Client, error) {
 		}
 		return resilience.Classification{Retry: true, Outcome: resilience.Failed}
 	}
-	return &Client{Base: strings.TrimRight(base, "/"), Token: token, HTTP: &http.Client{Transport: transport, Timeout: 1200 * time.Millisecond, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("provider redirects refused") }}, Policy: policy}, nil
+	return &Client{Base: strings.TrimRight(base, "/"), Token: token, HTTP: &http.Client{Transport: telemetry.Transport{Base: transport}, Timeout: 1200 * time.Millisecond, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("provider redirects refused") }}, Policy: policy}, nil
 }
 func (c *Client) call(ctx context.Context, i api.Intent, kind string) (api.Receipt, error) {
 	body, err := json.Marshal(i)

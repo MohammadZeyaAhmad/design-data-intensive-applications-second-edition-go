@@ -9,3 +9,5 @@ The native checks distinguish a rolled-back invalidation from a committed notifi
 The independent write-behind counterexample deliberately acknowledges a value that its modeled volatile crash loses. Reversing two pending writes regresses the source unless version checks reject stale delivery. That comparison explains why production price publication remains a PostgreSQL transaction and why a cache commit failure cannot reverse a business success. The finite model is not a physical durability experiment.
 
 The current queue/rate limits are explicit local defaults. Workload-derived sizing, distributed quotas, durable invalidation and richer operational telemetry remain part of the original scope, rather than being inferred from a small local scenario.
+
+OPS-01 adds [operational evidence](../../OBSERVABILITY.md): native trace parentage across durable SQL delivery, independent freshness/integrity signals and actual Prometheus rules. The availability denominator intentionally avoids status-series cold starts. Histogram percentiles remain estimates; production objectives and the full C02-02 workload/quantile audit remain open.

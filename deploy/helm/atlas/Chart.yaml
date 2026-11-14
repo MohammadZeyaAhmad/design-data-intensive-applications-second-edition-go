@@ -1,0 +1,5 @@
+apiVersion: v2
+name: atlas
+version: 0.1.0
+appVersion: reference
+description: Atlas API, durable worker and simulated provider with external PostgreSQL credentials

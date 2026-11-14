@@ -1,0 +1,18 @@
+{{- range $component := list "api" "provider" }}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: {{ $.Release.Name }}-{{ $component }}}
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/instance: {{ $.Release.Name }}, app.kubernetes.io/component: {{ $component }}}
+  ports: [{name: http, port: 8080, targetPort: http}]
+{{- end }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: {{ .Release.Name }}-api}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: {app.kubernetes.io/instance: {{ .Release.Name }}, app.kubernetes.io/component: api}

@@ -11,6 +11,7 @@ import (
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/domain"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/features/changereservation"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/inventory/ports"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/telemetry"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -18,6 +19,7 @@ type event struct {
 	ID, Tenant, SKU, Type, Warehouse string
 	Version                          int64
 	Payload                          []byte
+	Metadata                         envelope.Metadata
 }
 
 // ProcessOne is a local transactional dispatcher, not a Kafka publisher. The
@@ -30,17 +32,19 @@ func (s *Store) ProcessOne(ctx context.Context) (bool, error) {
 	}
 	defer rollback(tx)
 	var e event
-	err = tx.QueryRow(ctx, `SELECT o.event_id::text,o.tenant_id,o.sku,o.aggregate_version,o.event_type,o.payload,o.warehouse_id
+	err = tx.QueryRow(ctx, `SELECT o.event_id::text,o.tenant_id,o.sku,o.aggregate_version,o.event_type,o.payload,o.warehouse_id,o.metadata
         FROM inventory.outbox o
         WHERE o.processed_at IS NULL AND NOT o.quarantined AND o.available_at <= now()
           AND NOT EXISTS (SELECT 1 FROM inventory.outbox earlier WHERE earlier.tenant_id=o.tenant_id AND earlier.sku=o.sku AND earlier.warehouse_id=o.warehouse_id AND earlier.aggregate_version<o.aggregate_version AND earlier.processed_at IS NULL)
-        ORDER BY o.created_at,o.event_id FOR UPDATE OF o SKIP LOCKED LIMIT 1`).Scan(&e.ID, &e.Tenant, &e.SKU, &e.Version, &e.Type, &e.Payload, &e.Warehouse)
+        ORDER BY o.created_at,o.event_id FOR UPDATE OF o SKIP LOCKED LIMIT 1`).Scan(&e.ID, &e.Tenant, &e.SKU, &e.Version, &e.Type, &e.Payload, &e.Warehouse, &e.Metadata)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
 	if err != nil {
 		return false, err
 	}
+	ctx, finish := telemetry.Consumer(ctx, e.Metadata.TraceParent, "inventory.projection.apply", "other")
+	defer func() { finish(err) }()
 	if err = applyProjection(ctx, tx, e); err != nil {
 		rollback(tx)
 		if ctx.Err() == nil {

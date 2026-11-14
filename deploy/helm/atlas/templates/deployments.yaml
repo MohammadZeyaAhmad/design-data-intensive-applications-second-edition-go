@@ -1,0 +1,70 @@
+{{- $root := . -}}
+{{- range $component := list "api" "worker" "provider" }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $root.Release.Name }}-{{ $component }}
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $root.Release.Name }}-{{ $component }}
+spec:
+  replicas: {{ if eq $component "api" }}{{ $root.Values.api.replicas }}{{ else }}1{{ end }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
+  selector:
+    matchLabels: {app.kubernetes.io/instance: {{ $root.Release.Name }}, app.kubernetes.io/component: {{ $component }}}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/instance: {{ $root.Release.Name }}, app.kubernetes.io/component: {{ $component }}}
+    spec:
+      serviceAccountName: {{ $root.Release.Name }}-{{ $component }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext: {runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, fsGroup: 65532}
+      containers:
+        - name: atlas
+          image: {{ printf "%s@%s" $root.Values.image.repository $root.Values.image.digest | quote }}
+          args: [{{ if eq $component "api" }}serve{{ else }}{{ $component }}{{ end }}]
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          ports:
+            - {name: http, containerPort: 8080}
+            {{- if $root.Values.telemetry.enabled }}
+            - {name: metrics, containerPort: 9090}
+            {{- end }}
+          env:
+            - name: ATLAS_DATABASE_URL
+              valueFrom: {secretKeyRef: {name: {{ index $root.Values.credentials $component }}, key: url}}
+            - {name: ATLAS_HTTP_ADDR, value: ':8080'}
+            - {name: ATLAS_PROVIDER_URL, value: 'http://{{ $root.Release.Name }}-provider:8080'}
+            - name: ATLAS_PROVIDER_TOKEN
+              valueFrom: {secretKeyRef: {name: {{ $root.Values.credentials.providerToken }}, key: token}}
+            {{- if eq $component "api" }}
+            - name: ATLAS_TENANT_KEYS
+              valueFrom: {secretKeyRef: {name: {{ $root.Values.credentials.tenantKeys }}, key: keys}}
+            - name: ATLAS_GRAPHQL_CURSOR_KEY
+              valueFrom: {secretKeyRef: {name: {{ $root.Values.credentials.cursorKey }}, key: key}}
+            {{- end }}
+            - {name: ATLAS_TELEMETRY_ENABLED, value: {{ $root.Values.telemetry.enabled | quote }}}
+            - {name: ATLAS_DURABLE_TRACE, value: {{ $root.Values.telemetry.durable | quote }}}
+            {{- if $root.Values.telemetry.enabled }}
+            - {name: ATLAS_METRICS_ADDR, value: ':9090'}
+            - {name: ATLAS_OTLP_ENDPOINT, value: {{ $root.Values.telemetry.endpoint | quote }}}
+            - name: ATLAS_TELEMETRY_TOKEN
+              valueFrom: {secretKeyRef: {name: {{ $root.Values.credentials.telemetry }}, key: token}}
+            {{- end }}
+          {{- if eq $component "api" }}
+          livenessProbe: {httpGet: {path: /healthz, port: http}, initialDelaySeconds: 5, periodSeconds: 10}
+          readinessProbe: {httpGet: {path: /readyz, port: http}, periodSeconds: 5}
+          {{- else if eq $component "provider" }}
+          readinessProbe: {httpGet: {path: /healthz, port: http}, periodSeconds: 5}
+          {{- else }}
+          readinessProbe: {exec: {command: [/atlas, check]}, periodSeconds: 10, timeoutSeconds: 5}
+          {{- end }}
+          resources:
+{{ toYaml $root.Values.resources | indent 12 }}
+{{- end }}

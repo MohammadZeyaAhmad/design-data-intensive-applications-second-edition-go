@@ -1,0 +1,77 @@
+services:
+  api:
+    environment:
+      ATLAS_TELEMETRY_ENABLED: 'true'
+      ATLAS_DURABLE_TRACE: 'true'
+      ATLAS_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      ATLAS_METRICS_ADDR: :9090
+      ATLAS_TELEMETRY_TOKEN: ${ATLAS_TELEMETRY_TOKEN:?run make configure}
+      NO_PROXY: postgres,api,provider,redis,prometheus,grafana,jaeger,localhost,127.0.0.1
+    ports: ["127.0.0.1:19181:9090"]
+  worker:
+    environment:
+      ATLAS_TELEMETRY_ENABLED: 'true'
+      ATLAS_DURABLE_TRACE: 'true'
+      ATLAS_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      ATLAS_METRICS_ADDR: :9090
+      ATLAS_TELEMETRY_TOKEN: ${ATLAS_TELEMETRY_TOKEN:?run make configure}
+      NO_PROXY: postgres,api,provider,redis,prometheus,grafana,jaeger,localhost,127.0.0.1
+    ports: ["127.0.0.1:19182:9090"]
+  provider:
+    environment:
+      ATLAS_TELEMETRY_ENABLED: 'true'
+      ATLAS_DURABLE_TRACE: 'true'
+      ATLAS_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      ATLAS_METRICS_ADDR: :9090
+      ATLAS_TELEMETRY_TOKEN: ${ATLAS_TELEMETRY_TOKEN:?run make configure}
+      NO_PROXY: postgres,api,provider,redis,prometheus,grafana,jaeger,localhost,127.0.0.1
+    ports: ["127.0.0.1:19183:9090"]
+  prometheus:
+    image: prom/prometheus@sha256:5d34817348f69ddb956be509cafa4d4c2b5ecbbb5b786dd99d5a62e686b2ece4
+    environment:
+      NO_PROXY: api,worker,provider,prometheus,grafana,jaeger,localhost,127.0.0.1
+    user: "${ATLAS_LOCAL_UID:?run make configure}:${ATLAS_LOCAL_GID:?run make configure}"
+    command: [--config.file=/etc/prometheus/prometheus.yaml, --storage.tsdb.path=/tmp/prometheus, --storage.tsdb.retention.time=1h]
+    ports: ["127.0.0.1:19290:9090"]
+    volumes:
+      - ../observe/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - ../observe/rules.yaml:/etc/prometheus/rules.yaml:ro
+    secrets: [telemetry_token]
+    tmpfs: [/tmp:rw,size=128m,mode=1777]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+  grafana:
+    image: grafana/grafana@sha256:b739cda4b61ba3b90707578b643a22cd851fecf4498e6c6ec2d8f9d622a5d0b2
+    ports: ["127.0.0.1:19300:3000"]
+    environment:
+      NO_PROXY: api,worker,provider,prometheus,grafana,jaeger,localhost,127.0.0.1
+      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: 'true'
+      GF_SECURITY_ADMIN_PASSWORD: ${ATLAS_GRAFANA_PASSWORD:?run make configure}
+      GF_AUTH_BASIC_ENABLED: 'false'
+      GF_PATHS_PLUGINS: /tmp/grafana-plugins
+      GF_PLUGINS_PREINSTALL_DISABLED: 'true'
+      GF_PATHS_DATA: /tmp/grafana
+      GF_PATHS_LOGS: /tmp/grafana-logs
+    volumes:
+      - ../observe/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../observe/grafana/dashboards:/etc/grafana/dashboards:ro
+    tmpfs: [/tmp:rw,size=128m,mode=1777]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+  jaeger:
+    image: jaegertracing/all-in-one@sha256:cb5981ca3083928da3db18fc0dfd417da4e74a17f26b5374083ecece0ed10c92
+    environment:
+      COLLECTOR_OTLP_ENABLED: 'true'
+      SPAN_STORAGE_TYPE: memory
+      MEMORY_MAX_TRACES: '2048'
+    ports: ["127.0.0.1:19418:4318", "127.0.0.1:19686:16686"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+secrets:
+  telemetry_token:
+    file: ../../.env.telemetry-token

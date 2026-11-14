@@ -12,6 +12,7 @@ import (
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/ordering/domain"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/ordering/ports"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/identity"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/telemetry"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -49,6 +50,8 @@ func checkoutError(err error) error {
 	}
 }
 func (c Checkout) Begin(ctx context.Context, tenant, order, key string, expected int64, q cat.Quote, method string) (api.View, bool, error) {
+	ctx, finish := telemetry.Producer(ctx, "ordering.checkout.publish")
+	defer finish()
 	if expected < 1 || q.TenantID != tenant || len(method) < 1 || len(method) > 128 {
 		return api.View{}, false, api.ErrInvalid
 	}
@@ -147,7 +150,7 @@ func enqueueCheckout(ctx context.Context, tx pgx.Tx, tenant, method, engine stri
 	_, err = tx.Exec(ctx, `INSERT INTO ordering.checkout_outbox(tenant_id,id,order_id,body) VALUES($1,$2::uuid,$3::uuid,$4)`, tenant, request.ID, state.ID, body)
 	return err
 }
-func (s *Store) DispatchOne(ctx context.Context, sink api.Sink) (bool, error) {
+func (s *Store) DispatchOne(ctx context.Context, sink api.Sink) (worked bool, err error) {
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
 		return false, err
@@ -169,6 +172,8 @@ func (s *Store) DispatchOne(ctx context.Context, sink api.Sink) (bool, error) {
 	if request.TenantID != tenant || request.ID != id {
 		return false, domain.ErrInvalidEvent
 	}
+	ctx, finish := telemetry.Consumer(ctx, request.Metadata.TraceParent, "messaging.consume", "other")
+	defer func() { finish(err) }()
 	if err = sink.Submit(ctx, request); err != nil {
 		return true, err
 	}

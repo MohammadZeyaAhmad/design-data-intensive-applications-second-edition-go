@@ -1,0 +1,39 @@
+rule_files: [rules.yaml]
+evaluation_interval: 1s
+tests:
+  - name: lag is not integrity
+    interval: 1s
+    input_series:
+      - series: 'atlas_consumer_oldest_pending_seconds{job="atlas"}'
+        values: '3+0x8'
+      - series: 'atlas_consumer_pending{job="atlas"}'
+        values: '1+0x8'
+      - series: 'atlas_audit_up{job="atlas"}'
+        values: '1+0x8'
+      - series: 'atlas_integrity_mismatches{job="atlas"}'
+        values: '0+0x8'
+    alert_rule_test:
+      - eval_time: 4s
+        alertname: AtlasConsumerLag
+        exp_alerts:
+          - exp_labels: {job: atlas, severity: warning}
+            exp_annotations:
+              summary: Inventory delivery is behind its source
+              runbook: docs/runbooks/observability-and-release.md
+      - eval_time: 4s
+        alertname: AtlasIntegrityFailure
+        exp_alerts: []
+  - name: missing audit is not healthy
+    interval: 1s
+    input_series:
+      - series: 'atlas_audit_up{job="atlas"}'
+        values: '0+0x8'
+      - series: 'atlas_audit_enabled{job="atlas"}'
+        values: '1+0x8'
+    alert_rule_test:
+      - eval_time: 4s
+        alertname: AtlasAuditUnavailable
+        exp_alerts:
+          - exp_labels: {job: atlas, severity: warning}
+            exp_annotations:
+              summary: Freshness and integrity evidence is unavailable

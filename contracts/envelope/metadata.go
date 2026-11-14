@@ -13,6 +13,7 @@ var uuid = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 var actor = regexp.MustCompile(`^(tenant-key:[a-z][a-z0-9-]{0,63}|worker:[a-z][a-z0-9-]{0,63}|operator:local|system:internal)$`)
 
 type Metadata struct {
+	TraceParent     string `json:"traceparent,omitempty"`
 	Version         int    `json:"version"`
 	Actor           string `json:"actor,omitempty"`
 	CorrelationID   string `json:"correlation_id,omitempty"`
@@ -25,7 +26,7 @@ func (m Metadata) Valid() bool {
 	if m.Version == 0 {
 		return m == (Metadata{})
 	}
-	return m.Version == 1 && actor.MatchString(m.Actor) && ValidID(m.CorrelationID) && ValidID(m.CausationID) && (m.OriginRequestID == "" || ValidID(m.OriginRequestID))
+	return m.Version == 1 && (m.TraceParent == "" || ValidTraceParent(m.TraceParent)) && actor.MatchString(m.Actor) && ValidID(m.CorrelationID) && ValidID(m.CausationID) && (m.OriginRequestID == "" || ValidID(m.OriginRequestID))
 }
 
 type key struct{}
@@ -45,6 +46,9 @@ func Record(ctx context.Context, fallbackActor, cause string) (Metadata, error) 
 		m = Metadata{Version: 1, Actor: fallbackActor, CorrelationID: cause}
 	}
 	m.CausationID = cause
+	if parent := TraceFrom(ctx); parent != "" {
+		m.TraceParent = parent
+	}
 	if !m.Valid() {
 		return Metadata{}, ErrInvalid
 	}

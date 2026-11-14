@@ -10,6 +10,7 @@ import (
 
 	catcache "github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/catalog/adapters/cache"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/resilience"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/telemetry"
 )
 
 func catalogCache(ctx context.Context, logger *slog.Logger, dsn string, source catcache.Source) (*catcache.Store, func(), error) {
@@ -52,6 +53,10 @@ func catalogCache(ctx context.Context, logger *slog.Logger, dsn string, source c
 		}
 		return nil, nil, err
 	}
+	if observer := telemetry.From(ctx); observer != nil {
+		observer.RegisterBulkhead("catalog_origin", store.Origin.Bulkhead.Stats)
+		observer.RegisterBulkhead("catalog_cache", store.Cache.Bulkhead.Stats)
+	}
 	listener := catcache.StartListener(ctx, dsn, store)
 	cleanup := func() {
 		shutdown, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -63,7 +68,8 @@ func catalogCache(ctx context.Context, logger *slog.Logger, dsn string, source c
 		if closeBackend != nil {
 			_ = closeBackend()
 		}
-		logger.Info("catalog cache stopped", "stats", store.Stats())
+		stats := store.Stats()
+		logger.Info("catalog cache stopped", "cache_hits", stats.Hits, "cache_misses", stats.Misses, "cache_fallbacks", stats.Fallback, "cache_loads", stats.Loads, "cache_invalidations_failed", stats.InvalidationsFailed)
 	}
 	return store, cleanup, nil
 }

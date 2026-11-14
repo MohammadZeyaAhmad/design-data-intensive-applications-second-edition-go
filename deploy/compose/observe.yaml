@@ -37,7 +37,7 @@ services:
       - ../observe/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
       - ../observe/rules.yaml:/etc/prometheus/rules.yaml:ro
     secrets: [telemetry_token]
-    tmpfs: [/tmp:rw,size=128m,mode=1777]
+    tmpfs: ["/tmp:rw,size=128m,mode=1777"]
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
@@ -58,7 +58,7 @@ services:
     volumes:
       - ../observe/grafana/provisioning:/etc/grafana/provisioning:ro
       - ../observe/grafana/dashboards:/etc/grafana/dashboards:ro
-    tmpfs: [/tmp:rw,size=128m,mode=1777]
+    tmpfs: ["/tmp:rw,size=128m,mode=1777"]
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]

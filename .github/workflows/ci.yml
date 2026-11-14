@@ -177,15 +177,6 @@ jobs:
           path: |
             artifacts/resilience-live.json
             artifacts/resilience-load.json
-      - name: Actual private Prometheus, Grafana and Jaeger observation profile
-        run: |
-          make up-observe verify-observe-live
-          make restore-default-observe
-      - name: Retain observation profile evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: observation-profile
-          path: artifacts/operations-live.json
       - name: Local routing containers and shared REST/gRPC command receipts
         run: |
           make up-routing verify-rpc-live
@@ -228,3 +219,27 @@ jobs:
         if: always()
         run: |
           if test -f .env; then make down-observe down-redis-test down-resilience down-actors down-routing down-rdf down-graph down-search-test down-search down-temporal-test down-kafka-test down-temporal down-kafka; fi
+
+  observation-profile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.27.3'
+          cache: true
+          cache-dependency-path: go.sum
+      - name: Build and start the pinned observation stack
+        run: make up-observe
+      - name: Actual private metrics, provisioned Grafana and Jaeger checkout trace
+        run: make verify-observe-live
+      - name: Retain observation profile evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: observation-profile
+          path: artifacts/operations-live.json
+      - name: Stop the owned observation stack
+        if: always()
+        run: |
+          if test -f .env; then make down-observe; fi

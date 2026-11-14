@@ -76,7 +76,9 @@ jobs:
       - name: Actor supervision, remote process loss and transactional PostgreSQL receipts
         run: make check-actors-contracts actors-postgres actors-demo
       - name: PostgreSQL replication durability, fenced promotion, rewind and independent PITR
-        run: make replication-model replication-demo
+        run: |
+          umask 077
+          make replication-model replication-demo
       - name: Retain replication evidence and binary provenance
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -90,7 +92,9 @@ jobs:
       - name: Conditional object publication, independent compute and actual S3 HTTP contracts
         run: make object-storage-compare
       - name: Native statement, physical WAL and Go logical decoding with snapshot handoff
-        run: make log-formats-demo
+        run: |
+          umask 077
+          make log-formats-demo
       - name: Bounded pgoutput frame parsing
         run: cd labs && go test -run '^$' -fuzz '^FuzzPGOutputFrames$' -fuzztime=5s -parallel=2 ./ch06/log-formats
       - name: Retain replication-log reports and binary provenance

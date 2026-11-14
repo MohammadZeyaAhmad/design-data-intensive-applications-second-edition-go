@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 mkdir -p artifacts/replication-binaries
+chmod 0755 artifacts/replication-binaries
 GOWORK=off CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags='-s -w' -o artifacts/replication-binaries/atlas ./cmd/atlas
 (cd labs && GOWORK=off CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags='-s -w' -o ../artifacts/replication-binaries/replication-lab ./cmd/replication-lab)
 chmod 0755 artifacts/replication-binaries/atlas artifacts/replication-binaries/replication-lab

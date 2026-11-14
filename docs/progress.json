@@ -144,7 +144,7 @@
     },
     {
       "id": "C06-01",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "id": "C06-02",
@@ -378,6 +378,7 @@
     "scenarios/rpc-transport-failures.json",
     "scenarios/actor-messaging.json",
     "scenarios/cache-resilience.json",
-    "scenarios/observability-delivery.json"
+    "scenarios/observability-delivery.json",
+    "scenarios/single-leader-replication.json"
   ]
 }

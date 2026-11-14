@@ -43,9 +43,11 @@ verify-orders:
 verify-recovery:
 	go run ./cmd/guide verify-recovery
 ifeq ($(strip $(ID)),)
-verify: test integration coverage-check resilience-test resilience-postgres cache-demo integration-redis lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic graphql-demo graphql-postgres check-encoding-generated encoding-demo check-avro-generated avro-demo evolution-demo check-rpc-generated rpc-demo actors-postgres actors-demo integration-actors storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
+verify: test integration coverage-check replication-model replication-demo resilience-test resilience-postgres cache-demo integration-redis lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic graphql-demo graphql-postgres check-encoding-generated encoding-demo check-avro-generated avro-demo evolution-demo check-rpc-generated rpc-demo actors-postgres actors-demo integration-actors storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
 else ifeq ($(ID),OPS-01)
 verify: verify-operations-baseline
+else ifeq ($(ID),C06-01)
+verify: verify-replication
 else ifeq ($(ID),APP-09)
 verify: verify-resilience
 else ifeq ($(ID),C03-01)
@@ -78,7 +80,7 @@ else ifeq ($(ID),C05-06)
 verify: verify-actors
 else
 verify:
-	@echo 'Scoped verification supports ID=OPS-01, APP-09, C03-01, C03-03 through C03-05, C04-01 through C04-05, C05-01 through C05-04, C05-06; other plan IDs remain future interfaces.' >&2
+	@echo 'Scoped verification supports ID=OPS-01, APP-09, C03-01, C03-03 through C03-05, C04-01 through C04-05, C05-01 through C05-04, C05-06, C06-01; other plan IDs remain future interfaces.' >&2
 	@exit 2
 endif
 demo:
@@ -326,6 +328,20 @@ up-actors:
 	$(COMPOSE_ACTORS) up -d --wait
 down-actors:
 	$(COMPOSE_ACTORS) down --volumes
+
+.PHONY: replication-binaries replication-test replication-postgres replication-model replication-demo verify-replication
+replication-binaries:
+	bash tools/replication-binaries.sh
+replication-test:
+	go test -race -count=1 ./internal/platform/database
+	cd labs && go test -race -count=1 ./ch06/single-leader ./cmd/replication-lab
+replication-postgres:
+	go test -race -tags=integration -run '^TestWriterFence' -count=1 ./tests/integration
+replication-model: replication-binaries
+	artifacts/replication-binaries/replication-lab --model-only --output artifacts/replication/model.json
+replication-demo: replication-binaries
+	bash tools/replication-demo.sh
+verify-replication: coverage-check replication-test replication-postgres replication-model replication-demo
 
 .PHONY: generate-actors-contracts check-actors-contracts
 generate-actors-contracts:

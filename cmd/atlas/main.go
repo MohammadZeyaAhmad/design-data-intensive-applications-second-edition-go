@@ -98,6 +98,9 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	if err != nil {
 		return errors.New("invalid database configuration")
 	}
+	if err = database.ConfigureWriterEpoch(poolConfig, os.Getenv("ATLAS_DATABASE_WRITER_EPOCH")); err != nil {
+		return err
+	}
 	if command == "rpc" {
 		label := os.Getenv("ATLAS_RPC_ENDPOINT")
 		if label == "" {

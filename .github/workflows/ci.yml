@@ -72,6 +72,16 @@ jobs:
         run: make rpc-demo
       - name: Actor supervision, remote process loss and transactional PostgreSQL receipts
         run: make check-actors-contracts actors-postgres actors-demo
+      - name: PostgreSQL replication durability, fenced promotion, rewind and independent PITR
+        run: make replication-model replication-demo
+      - name: Retain replication evidence and binary provenance
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: single-leader-replication
+          path: |
+            artifacts/replication/*.json
+            artifacts/replication-binaries/manifest.json
       - name: Real pgvector profile, exact recall and search application tests
         run: make integration-search-vector
       - name: Real graph SQL and Neo4j profile, tenant fences and bounded paths

@@ -33,7 +33,7 @@ func main() {
 }
 func run() error {
 	if len(os.Args) != 2 {
-		return errors.New("usage: guide verify-operations-baseline|verify-observe-live|verify-resilience|verify-resilience-live|configure|doctor|wait|demo|demo-orders|demo-checkout|verify-checkout|verify-checkout-recovery|verify-fulfillment|verify-fulfillment-recovery|verify-operations|verify-kafka|verify-temporal|verify-storage|verify-btree|verify-indexes|verify-columnstore|verify-graph|verify-graph-services|verify-semantic|verify-semantic-services|verify-models|verify-models-live|verify-graphql|verify-graphql-live|verify-encoding|verify-avro|verify-evolution|evolution-demo|verify-rpc|rpc-demo|verify-rpc-live|verify-actors|actors-demo|actors-broker-demo|actors-postgres|verify-search|verify-search-vector|verify-search-live|verify-live|verify-lifecycle|verify-orders|verify-recovery|coverage")
+		return errors.New("usage: guide verify-replication|replication-demo|verify-operations-baseline|verify-observe-live|verify-resilience|verify-resilience-live|configure|doctor|wait|demo|demo-orders|demo-checkout|verify-checkout|verify-checkout-recovery|verify-fulfillment|verify-fulfillment-recovery|verify-operations|verify-kafka|verify-temporal|verify-storage|verify-btree|verify-indexes|verify-columnstore|verify-graph|verify-graph-services|verify-semantic|verify-semantic-services|verify-models|verify-models-live|verify-graphql|verify-graphql-live|verify-encoding|verify-avro|verify-evolution|evolution-demo|verify-rpc|rpc-demo|verify-rpc-live|verify-actors|actors-demo|actors-broker-demo|actors-postgres|verify-search|verify-search-vector|verify-search-live|verify-live|verify-lifecycle|verify-orders|verify-recovery|coverage")
 	}
 	command := os.Args[1]
 	if command == "actors-demo" || command == "actors-broker-demo" || command == "actors-postgres" {
@@ -67,7 +67,7 @@ func run() error {
 		cmd.Stderr = os.Stderr
 		return cmd.Run()
 	}
-	if command == "verify-operations-baseline" || command == "verify-resilience" || command == "verify-graphql" || command == "verify-encoding" || command == "verify-avro" || command == "verify-evolution" || command == "verify-rpc" || command == "verify-actors" {
+	if command == "verify-replication" || command == "replication-demo" || command == "verify-operations-baseline" || command == "verify-resilience" || command == "verify-graphql" || command == "verify-encoding" || command == "verify-avro" || command == "verify-evolution" || command == "verify-rpc" || command == "verify-actors" {
 		cmd := exec.Command("make", command)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

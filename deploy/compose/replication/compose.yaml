@@ -1,0 +1,18 @@
+name: ddia-go-replication
+services:
+  replication-lab:
+    image: postgres@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4
+    user: postgres
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 1g
+    network_mode: none
+    entrypoint: [/lab/replication-lab]
+    command: [--pg-bin, /usr/lib/postgresql/18/bin, --atlas, /lab/atlas, --workdir, /scratch, --output, /evidence/native.json]
+    volumes:
+      - ../../../artifacts/replication-binaries:/lab:ro
+      - ../../../artifacts/replication:/evidence
+    tmpfs:
+      - "/scratch:size=1024m,mode=1777"

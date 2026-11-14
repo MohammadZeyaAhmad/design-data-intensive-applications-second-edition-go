@@ -105,6 +105,20 @@ jobs:
           path: |
             artifacts/log-formats/*.json
             artifacts/log-formats-binaries/manifest.json
+      - name: Native session fences, uneven replica lag, snapshots and explicit fallback
+        run: |
+          umask 077
+          make session-demo
+      - name: Bounded signed session tokens and WAL positions
+        run: go test -run '^$' -fuzz '^FuzzSessionToken$' -fuzztime=5s -parallel=2 ./internal/platform/readrouting
+      - name: Retain session consistency report and binary provenance
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: session-consistency
+          path: |
+            artifacts/session-consistency/*.json
+            artifacts/session-binaries/manifest.json
       - name: Bounded object manifest and segment format fuzzing
         run: cd labs && go test -run '^$' -fuzz '^FuzzBoundedObjectFormats$' -fuzztime=5s -parallel=2 ./ch06/object-storage
       - name: Retain object storage reports and binary provenance

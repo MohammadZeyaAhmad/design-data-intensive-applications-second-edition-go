@@ -242,6 +242,13 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		return err
 	}
 	address := os.Getenv("ATLAS_HTTP_ADDR")
+	readRouter, closeReads, err := inventoryReadRouter(ctx, pool)
+	if err != nil {
+		return err
+	}
+	defer closeReads()
+	store.ReadRouter = readRouter
+	observer.RegisterReadRouting(readRouter)
 	if address == "" {
 		address = "127.0.0.1:8080"
 	}

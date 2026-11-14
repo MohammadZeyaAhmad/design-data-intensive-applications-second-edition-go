@@ -64,3 +64,7 @@ Workflow-owned reservations are managed through the published checkout contract.
 ## Published service contracts and request budgets
 
 The [OpenAPI 3.1 reservation/stock subset](../api/openapi/inventory/openapi.json) is served at `GET /openapi/inventory.json`. The [REST/gRPC guide](RPC.md) explains the second adapter, shared command receipts, exact integer/timestamp representations and native transport failures. Inventory requests may provide one `X-Request-Timeout-Ms` value from 1 through 10000; an earlier parent deadline wins. A timeout may follow a commit, so retries must retain the original tenant, operation, key and command.
+
+## Optional session-consistent Inventory reads
+
+See the [session consistency guide](SESSION_CONSISTENCY.md) and [OpenAPI contract](../api/openapi/inventory/openapi.json) for opt-in primary/physical-replica reads, signed tenant/history watermarks, bounded pending/fallback behavior and `GET /v1/inventory/snapshot`. Commands remain primary-authoritative. The asynchronous projection has a separate worker-progress contract.

@@ -24,6 +24,10 @@ func Route(path string) string {
 		return "unmatched"
 	}
 	switch parts[1] {
+	case "inventory":
+		if len(parts) == 3 && parts[2] == "snapshot" {
+			return "/v1/inventory/snapshot"
+		}
 	case "graphql":
 		if len(parts) == 2 {
 			return "/v1/graphql"

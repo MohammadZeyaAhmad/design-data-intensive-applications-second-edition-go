@@ -156,7 +156,7 @@
     },
     {
       "id": "C06-04",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "id": "C06-05",
@@ -381,6 +381,7 @@
     "scenarios/observability-delivery.json",
     "scenarios/single-leader-replication.json",
     "scenarios/object-backed-storage.json",
-    "scenarios/replication-log-formats.json"
+    "scenarios/replication-log-formats.json",
+    "scenarios/session-consistency.json"
   ]
 }

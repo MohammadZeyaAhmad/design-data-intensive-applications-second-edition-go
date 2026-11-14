@@ -18,6 +18,7 @@ import (
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/auth"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/httpx"
 	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/identity"
+	"github.com/MohammadZeyaAhmad/design-data-intensive-applications-second-edition-go/internal/platform/readrouting"
 )
 
 type Options struct {
@@ -25,10 +26,16 @@ type Options struct {
 	TenantKeys map[[32]byte]string
 	Ready      func(context.Context) error
 	Logger     *slog.Logger
+	Session    ports.SessionReader
 }
 type server struct{ Options }
 
 func New(o Options) http.Handler {
+	if o.Session == nil {
+		if r, ok := o.Store.(ports.SessionReader); ok && r.SessionEnabled() {
+			o.Session = r
+		}
+	}
 	if o.Logger == nil {
 		o.Logger = slog.Default()
 	}
@@ -49,6 +56,7 @@ func New(o Options) http.Handler {
 	mux.Handle("GET /v1/stock/{sku}/projection", s.auth(http.HandlerFunc(s.projection)))
 	mux.Handle("POST /v1/reservations", s.auth(http.HandlerFunc(s.reserve)))
 	mux.Handle("GET /v1/reservations/{id}", s.auth(http.HandlerFunc(s.reservation)))
+	mux.Handle("GET /v1/inventory/snapshot", s.auth(http.HandlerFunc(s.snapshot)))
 	mux.Handle("POST /v1/reservations/{id}/commit", s.auth(http.HandlerFunc(s.change)))
 	mux.Handle("POST /v1/reservations/{id}/release", s.auth(http.HandlerFunc(s.change)))
 	mux.Handle("POST /v1/reservations/{id}/reverse", s.auth(http.HandlerFunc(s.change)))
@@ -60,6 +68,26 @@ func (s server) auth(next http.Handler) http.Handler {
 		if r.Header.Get("If-Match") != "" {
 			problem(w, 400, "conditional_requests_not_supported")
 			return
+		}
+		if hasSessionHeaders(r) {
+			if s.Session == nil || strings.HasSuffix(r.URL.Path, "/projection") {
+				s.failure(w, readrouting.ErrContract)
+				return
+			}
+			if _, err := options(r); err != nil {
+				s.failure(w, err)
+				return
+			}
+			if r.Method != "GET" && (r.Header.Get("X-Read-Consistency") != "" || r.Header.Get("X-Read-On-Lag") != "" || r.Header.Get("X-Read-Wait-Ms") != "") {
+				s.failure(w, readrouting.ErrContract)
+				return
+			}
+		}
+		if r.Method != "GET" && s.Session != nil {
+			if err := s.Session.VerifySession(r.Context(), tenant(r), r.Header.Get("X-Session-Token")); err != nil {
+				s.failure(w, err)
+				return
+			}
 		}
 		next.ServeHTTP(w, r)
 	}))
@@ -75,7 +103,7 @@ func (s server) receive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out, replayed, err := (receivestock.Handler{Store: s.Store}).Handle(r.Context(), tenant(r), r.Header.Get("Idempotency-Key"), receivestock.Command{SKU: r.PathValue("sku"), Quantity: input.Quantity, WarehouseID: input.WarehouseID})
-	s.result(w, 200, out, replayed, err)
+	s.finish(w, r, 200, out, replayed, err)
 }
 func (s server) reserve(w http.ResponseWriter, r *http.Request) {
 	var c reservestock.Command
@@ -86,7 +114,7 @@ func (s server) reserve(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		w.Header().Set("Location", "/v1/reservations/"+out.Reservation.ID)
 	}
-	s.result(w, 201, out, replayed, err)
+	s.finish(w, r, 201, out, replayed, err)
 }
 func (s server) change(w http.ResponseWriter, r *http.Request) {
 	// Transition commands have no body. Reject unexpected input rather than
@@ -105,7 +133,7 @@ func (s server) change(w http.ResponseWriter, r *http.Request) {
 		target = domain.ReservationReversed
 	}
 	out, replayed, err := (changereservation.Handler{Store: s.Store}).Handle(r.Context(), tenant(r), r.Header.Get("Idempotency-Key"), changereservation.Command{ID: r.PathValue("id"), Target: target})
-	s.result(w, 200, out, replayed, err)
+	s.finish(w, r, 200, out, replayed, err)
 }
 func (s server) stock(w http.ResponseWriter, r *http.Request) {
 	if !domain.ValidSKU(r.PathValue("sku")) {
@@ -119,7 +147,13 @@ func (s server) stock(w http.ResponseWriter, r *http.Request) {
 	}
 	var out domain.StockState
 	var err error
-	if warehouse == "" || warehouse == "default" {
+	if s.Session != nil {
+		v, ok := s.query(w, r, ports.ViewQuery{SKU: r.PathValue("sku"), WarehouseID: warehouse})
+		if !ok {
+			return
+		}
+		out = *v.Stock
+	} else if warehouse == "" || warehouse == "default" {
 		out, err = s.Store.Stock(r.Context(), tenant(r), r.PathValue("sku"))
 	} else {
 		out, err = s.Store.StockAt(r.Context(), tenant(r), r.PathValue("sku"), warehouse)
@@ -154,7 +188,17 @@ func (s server) reservation(w http.ResponseWriter, r *http.Request) {
 		problem(w, 400, "invalid_input")
 		return
 	}
-	out, err := s.Store.Reservation(r.Context(), tenant(r), r.PathValue("id"))
+	var out domain.ReservationState
+	var err error
+	if s.Session != nil {
+		v, ok := s.query(w, r, ports.ViewQuery{ReservationID: r.PathValue("id")})
+		if !ok {
+			return
+		}
+		out = *v.Reservation
+	} else {
+		out, err = s.Store.Reservation(r.Context(), tenant(r), r.PathValue("id"))
+	}
 	if err != nil {
 		s.failure(w, err)
 		return
@@ -183,6 +227,20 @@ func (s server) failure(w http.ResponseWriter, err error) {
 		}
 	}
 	switch {
+	case errors.Is(err, readrouting.ErrToken):
+		problem(w, 400, "invalid_session_token")
+	case errors.Is(err, readrouting.ErrExpired):
+		problem(w, 410, "expired_session_token")
+	case errors.Is(err, readrouting.ErrHistory):
+		problem(w, 409, "session_history_changed")
+	case errors.Is(err, readrouting.ErrPending):
+		w.Header().Set("Retry-After", "1")
+		w.Header().Set("Cache-Control", "no-store")
+		problem(w, 425, "replica_pending")
+	case errors.Is(err, readrouting.ErrUnavailable):
+		problem(w, 503, "read_authority_unavailable")
+	case errors.Is(err, readrouting.ErrContract):
+		problem(w, 400, "unsupported_read_contract")
 	case errors.Is(err, domain.ErrInvalidInput):
 		problem(w, 400, "invalid_input")
 	case errors.Is(err, domain.ErrNotFound):

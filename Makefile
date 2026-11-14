@@ -43,7 +43,7 @@ verify-orders:
 verify-recovery:
 	go run ./cmd/guide verify-recovery
 ifeq ($(strip $(ID)),)
-verify: test integration coverage-check log-formats-demo object-storage-compare replication-model replication-demo resilience-test resilience-postgres cache-demo integration-redis lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic graphql-demo graphql-postgres check-encoding-generated encoding-demo check-avro-generated avro-demo evolution-demo check-rpc-generated rpc-demo actors-postgres actors-demo integration-actors storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
+verify: test integration coverage-check session-demo log-formats-demo object-storage-compare replication-model replication-demo resilience-test resilience-postgres cache-demo integration-redis lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic graphql-demo graphql-postgres check-encoding-generated encoding-demo check-avro-generated avro-demo evolution-demo check-rpc-generated rpc-demo actors-postgres actors-demo integration-actors storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
 else ifeq ($(ID),OPS-01)
 verify: verify-operations-baseline
 else ifeq ($(ID),C06-01)
@@ -52,6 +52,8 @@ else ifeq ($(ID),C06-02)
 verify: verify-object-storage
 else ifeq ($(ID),C06-03)
 verify: verify-log-formats
+else ifeq ($(ID),C06-04)
+verify: verify-session-consistency
 else ifeq ($(ID),APP-09)
 verify: verify-resilience
 else ifeq ($(ID),C03-01)
@@ -84,7 +86,7 @@ else ifeq ($(ID),C05-06)
 verify: verify-actors
 else
 verify:
-	@echo 'Scoped verification supports ID=OPS-01, APP-09, C03-01, C03-03 through C03-05, C04-01 through C04-05, C05-01 through C05-04, C05-06, C06-01, C06-02, C06-03; other plan IDs remain future interfaces.' >&2
+	@echo 'Scoped verification supports ID=OPS-01, APP-09, C03-01, C03-03 through C03-05, C04-01 through C04-05, C05-01 through C05-04, C05-06, C06-01, C06-02, C06-03, C06-04; other plan IDs remain future interfaces.' >&2
 	@exit 2
 endif
 demo:
@@ -376,6 +378,19 @@ log-formats-demo: log-formats-binaries
 verify-log-formats: coverage-check log-formats-test log-formats-demo
 
 .PHONY: generate-actors-contracts check-actors-contracts
+.PHONY: session-binaries session-test session-postgres session-demo verify-session-consistency
+session-binaries:
+	bash tools/session-binaries.sh
+session-test:
+	go test -race -count=1 ./internal/platform/readrouting ./internal/inventory/... ./tests/architecture
+	cd labs && go test -race -count=1 ./ch06/session-consistency ./cmd/session-lab
+	cd labs && go vet ./ch06/session-consistency ./cmd/session-lab
+session-postgres:
+	go test -race -tags=integration -run '^TestSession' -count=1 ./tests/integration
+session-demo: session-binaries
+	bash tools/session-demo.sh
+verify-session-consistency: coverage-check session-test session-postgres session-demo
+
 generate-actors-contracts:
 	bash tools/actors-contracts.sh generate
 check-actors-contracts:

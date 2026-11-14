@@ -1,0 +1,56 @@
+{
+  "id": "session-consistency",
+  "status": "verified",
+  "work_packages": [
+    "C06-04"
+  ],
+  "commands": [
+    "make verify ID=C06-04",
+    "make session-test session-postgres session-demo",
+    "go run ./cmd/guide verify-session-consistency"
+  ],
+  "assertions": [
+    "native primary and two physical standbys reproduce acknowledged-write staleness, version regression and a torn stock/reservation view before guarded reads",
+    "signed tenant/source/history WAL watermarks reject tampering, other tenants, expiration and unrelated source/history",
+    "replay is gated before a read-only repeatable-read snapshot; returned tokens conservatively bound future reads rather than identify the exact output snapshot",
+    "bounded waits return explicit 425 pending or labeled primary fallback; delayed replay succeeds inside the wait",
+    "sticky preference survives endpoint relocation without dropping the watermark; stopped endpoints recover and wrong endpoint roles are excluded",
+    "combined snapshot returns matching stock and reservation in one transaction, and a real interleaved commit does not alter an already established RR snapshot",
+    "saved command receipts and effects survive replay unchanged; postcommit fence failure preserves the successful receipt with unavailable session metadata",
+    "session client serializes concurrent calls, retains the latest token and requires primary reads after a missing mutation fence",
+    "private bounded request-driven metrics expose probe state, fence gap, observation age and pending/fallback; actual native WAL byte gap is positive during lag and zero after catch-up",
+    "twelve native concurrent observations preserve tenant isolation and authoritative absence also returns a fence",
+    "authority epoch rotation stops old API fences and old tokens, excluding a prior-history replica until replay catches up",
+    "15625 finite schedules compare accepted reads against an independent maximum-observation oracle",
+    "known cross-shard causal dependencies require parent re-reads, while a causally valid debit-only cut demonstrates that per-shard tokens do not make an atomic transfer snapshot"
+  ],
+  "evidence": [
+    "internal/platform/readrouting/router.go",
+    "internal/platform/readrouting/token.go",
+    "internal/platform/readrouting/stats.go",
+    "internal/platform/readrouting/client.go",
+    "internal/platform/readrouting/token_test.go",
+    "internal/platform/readrouting/client_test.go",
+    "internal/platform/telemetry/readrouting.go",
+    "internal/inventory/adapters/postgres/session.go",
+    "internal/inventory/adapters/httpapi/session.go",
+    "internal/inventory/adapters/httpapi/session_test.go",
+    "cmd/atlas/readrouting.go",
+    "migrations/000_platform/004_read_identity.sql",
+    "api/openapi/inventory/openapi.json",
+    "tests/integration/session_consistency_test.go",
+    "labs/ch06/session-consistency/model.go",
+    "labs/ch06/session-consistency/model_test.go",
+    "labs/ch06/session-consistency/native.go",
+    "labs/cmd/session-lab/main.go",
+    "deploy/compose/session-consistency/compose.yaml",
+    "tools/session-binaries.sh",
+    "tools/session-demo.sh",
+    "docs/SESSION_CONSISTENCY.md",
+    "docs/session-consistency-work-plan.md",
+    "docs/chapters/ch06/session-consistency.md",
+    "docs/adr/0027-inventory-session-fences-and-snapshot-reads.md",
+    "docs/runbooks/session-consistency.md",
+    "docs/VALIDATION.md"
+  ]
+}

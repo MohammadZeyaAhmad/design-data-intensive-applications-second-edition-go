@@ -57,8 +57,7 @@ jobs:
         run: |
           ATLAS_RELEASE_REQUIRE_CLEAN=true make release-artifacts
           make deployment-reference-check
-          ${ATLAS_OPERATIONS_TOOLS:-/tmp/atlas-operations-tools}/terraform -chdir=deploy/terraform/aws-reference init -backend=false -input=false -lockfile=readonly
-          ${ATLAS_OPERATIONS_TOOLS:-/tmp/atlas-operations-tools}/terraform -chdir=deploy/terraform/aws-reference validate
+          bash tools/terraform-reference-check.sh
       - name: Real catalog model queries, plans and ORM comparison
         run: make models-postgres
       - name: GraphQL composition, native batching and REST parity

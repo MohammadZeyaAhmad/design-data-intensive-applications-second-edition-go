@@ -43,11 +43,13 @@ verify-orders:
 verify-recovery:
 	go run ./cmd/guide verify-recovery
 ifeq ($(strip $(ID)),)
-verify: test integration coverage-check replication-model replication-demo resilience-test resilience-postgres cache-demo integration-redis lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic graphql-demo graphql-postgres check-encoding-generated encoding-demo check-avro-generated avro-demo evolution-demo check-rpc-generated rpc-demo actors-postgres actors-demo integration-actors storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
+verify: test integration coverage-check object-storage-compare replication-model replication-demo resilience-test resilience-postgres cache-demo integration-redis lab models-demo models-postgres graph-demo integration-graph semantic-demo integration-semantic graphql-demo graphql-postgres check-encoding-generated encoding-demo check-avro-generated avro-demo evolution-demo check-rpc-generated rpc-demo actors-postgres actors-demo integration-actors storage-demo btree-demo index-demo tradeoffs-demo column-demo search-demo query-plans integration-search-vector verify-live verify-lifecycle verify-orders verify-checkout verify-checkout-recovery verify-fulfillment verify-fulfillment-recovery verify-operations verify-recovery verify-search-live verify-models-live verify-graphql-live
 else ifeq ($(ID),OPS-01)
 verify: verify-operations-baseline
 else ifeq ($(ID),C06-01)
 verify: verify-replication
+else ifeq ($(ID),C06-02)
+verify: verify-object-storage
 else ifeq ($(ID),APP-09)
 verify: verify-resilience
 else ifeq ($(ID),C03-01)
@@ -80,7 +82,7 @@ else ifeq ($(ID),C05-06)
 verify: verify-actors
 else
 verify:
-	@echo 'Scoped verification supports ID=OPS-01, APP-09, C03-01, C03-03 through C03-05, C04-01 through C04-05, C05-01 through C05-04, C05-06, C06-01; other plan IDs remain future interfaces.' >&2
+	@echo 'Scoped verification supports ID=OPS-01, APP-09, C03-01, C03-03 through C03-05, C04-01 through C04-05, C05-01 through C05-04, C05-06, C06-01, C06-02; other plan IDs remain future interfaces.' >&2
 	@exit 2
 endif
 demo:
@@ -342,6 +344,24 @@ replication-model: replication-binaries
 replication-demo: replication-binaries
 	bash tools/replication-demo.sh
 verify-replication: coverage-check replication-test replication-postgres replication-model replication-demo
+
+.PHONY: object-storage-binaries object-storage-runtime object-storage-test object-storage-demo integration-object-storage object-storage-compare object-storage-s3-cloud verify-object-storage
+object-storage-binaries:
+	bash tools/object-storage-binaries.sh
+object-storage-runtime:
+	bash tools/object-storage-runtime.sh
+object-storage-test:
+	cd labs && go test -race -count=1 ./ch06/object-storage ./cmd/object-lab
+	cd labs && go vet ./ch06/object-storage ./cmd/object-lab
+object-storage-demo: object-storage-binaries
+	artifacts/object-storage-binaries/object-lab --profile file --output artifacts/object-storage/file.json
+integration-object-storage: object-storage-binaries object-storage-runtime
+	artifacts/object-storage-binaries/object-lab --profile emulator --python "$${ATLAS_OBJECT_RUNTIME:-$(CURDIR)/artifacts/object-storage-runtime}/bin/python" --moto-script "$(CURDIR)/tools/object-storage-moto.py" --output artifacts/object-storage/emulator.json
+object-storage-s3-cloud: object-storage-binaries
+	artifacts/object-storage-binaries/object-lab --profile cloud --output artifacts/object-storage/cloud.json
+object-storage-compare: object-storage-demo integration-object-storage
+	python3 tools/object-storage-compare.py
+verify-object-storage: coverage-check object-storage-test object-storage-compare
 
 .PHONY: generate-actors-contracts check-actors-contracts
 generate-actors-contracts:

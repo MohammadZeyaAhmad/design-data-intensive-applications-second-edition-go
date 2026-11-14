@@ -1,0 +1,5 @@
+# Integration emulator only; no application dependency on Python or Moto.
+moto[s3]==5.2.5
+Flask>=3.1,<4
+Werkzeug>=3.1,<4
+Flask-Cors>=6,<7

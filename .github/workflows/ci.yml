@@ -33,6 +33,9 @@ jobs:
           cache-dependency-path: |
             go.sum
             labs/go.sum
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12.14'
       - name: Formatting
         run: test -z "$(gofmt -l cmd contracts internal migrations tests api labs benchmarks)"
       - name: Reproduce pinned sqlc catalog mappings
@@ -84,6 +87,18 @@ jobs:
             artifacts/replication-binaries/manifest.json
       - name: Real pgvector profile, exact recall and search application tests
         run: make integration-search-vector
+      - name: Conditional object publication, independent compute and actual S3 HTTP contracts
+        run: make object-storage-compare
+      - name: Bounded object manifest and segment format fuzzing
+        run: cd labs && go test -run '^$' -fuzz '^FuzzBoundedObjectFormats$' -fuzztime=5s -parallel=2 ./ch06/object-storage
+      - name: Retain object storage reports and binary provenance
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: object-backed-storage
+          path: |
+            artifacts/object-storage/*.json
+            artifacts/object-storage-binaries/manifest.json
       - name: Real graph SQL and Neo4j profile, tenant fences and bounded paths
         run: make integration-graph
       - name: Real RDF and SPARQL, recursive SQL and positive Datalog parity

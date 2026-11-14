@@ -148,7 +148,7 @@
     },
     {
       "id": "C06-02",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "id": "C06-03",
@@ -379,6 +379,7 @@
     "scenarios/actor-messaging.json",
     "scenarios/cache-resilience.json",
     "scenarios/observability-delivery.json",
-    "scenarios/single-leader-replication.json"
+    "scenarios/single-leader-replication.json",
+    "scenarios/object-backed-storage.json"
   ]
 }
